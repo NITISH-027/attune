@@ -43,18 +43,18 @@ This document provides a structured, high-impact demonstration protocol for tech
 ---
 
 ### Step 3: The Empirical Evidence & Production Graduation (1:00 – 1:30)
-> **Goal:** Close with quantitative rigor, zero-leakage splits, and external transfer.
+> **Goal:** Close with quantitative rigor, Zero Verbatim Query Overlap (Train ∩ Test = 0 queries), and external transfer.
 
 - **Action:** Scroll to the bottom architectural summary or point to `README.md`.
 - **Spoken Script:**
   > *"Under the hood, ATTUNE is a fine-tuned `all-MiniLM-L6-v2` encoder with temperature-scaled calibration ($T^* = 0.8453$, ECE $= 0.0125$).*
   >
-  > *On our held-out test split of 200 strictly grouped episodes with zero scenario leakage:*
-  > 1. *Negative Transfer dropped from **100% in Fixed Profiles** and **16.7% in Rule Gates** to **0.0% in ATTUNE**.*
+  > *On our held-out test split of 200 strictly grouped episodes with Zero Verbatim Query Overlap (Train ∩ Test = 0 queries):*
+  > 1. *Negative Transfer dropped from **100% in Fixed Profiles** and **23.3% in Rule Gates** down to **9.2% in ATTUNE** (a >90% reduction).*
   > 2. *We retained **96.25% of valid personalization** ($FSR = 3.75\%$).*
   > 3. *On external zero-shot benchmarks, ATTUNE scored **100% accuracy on PrefEval** and suppressed **92.7% of negative transfer on CUPID**.*
   >
-  > *It runs entirely on standard CPU with **$24.7\text{ ms}$ average latency**, making it ready for production middleware insertion."*
+  > *It runs entirely on standard CPU with **$37.2\text{ ms}$ average latency**, making it ready for production middleware insertion."*
 
 ---
 

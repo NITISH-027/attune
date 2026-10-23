@@ -41,6 +41,7 @@
    - [6.2 Benchmark Dataset Splits & Stratification](#62-benchmark-dataset-splits--stratification)
    - [6.3 Graduation Criteria](#63-graduation-criteria)
    - [6.4 Statistical Significance Protocol](#64-statistical-significance-protocol)
+   - [6.5 External Academic Benchmark Generalization](#65-external-academic-benchmark-generalization)
 
 ---
 
@@ -486,7 +487,7 @@ Every evaluation milestone must benchmark the exact four systems under identical
    - Predicts applicability probability $\hat{p}$. If $\hat{p} \ge \tau$ and Tier 1 passes, preference prompt instructions are dynamically injected; otherwise, the context is conditioned neutrally.
 
 ### 6.2 Benchmark Dataset Splits & Stratification
-The benchmark test suite must consist of $N \ge 2{,}000$ validated tuples stratified across the four scenario types:
+The benchmark test suite must consist of $N \ge 2{,}000$ validated tuples stratified across the four scenario types under a strict Zero Verbatim Query Overlap (Train ∩ Test = 0 queries) constraint:
 
 | Scenario Type | Target Proportion | Primary Metric Focus |
 |---|---|---|
@@ -514,3 +515,15 @@ To advance to production release, **System D (ATTUNE)** must satisfy all of the 
 - All comparative metric differentials ($\Delta\text{NTR}, \Delta\text{FSR}, \Delta\text{RCR}$) must demonstrate significance at $p < 0.01$.
 - Binary classification differences between System D and System C/B must be evaluated using **McNemar's Test** with continuity correction.
 - Continuous metric distributions must be evaluated using a **two-tailed Wilcoxon signed-rank test** accompanied by 95% bootstrap confidence intervals ($B = 10{,}000$ resamples).
+
+### 6.5 External Academic Benchmark Generalization
+
+To validate out-of-domain transfer and cross-task generalization, the frozen gating model is evaluated zero-shot on external academic preference datasets with Zero Verbatim Query Overlap (Train ∩ Test = 0 queries).
+
+| Benchmark Dataset | Source / Reference | Evaluation Split / Schema | Zero-Shot Transfer Focus |
+| :--- | :--- | :--- | :--- |
+| **PrefEval** | ICLR 2025 | Curated 150-instance evaluation split matching the ICLR 2025 PrefEval task schema. | Technical CS & Coding Preference Adherence |
+| **CUPID** | KAIST / KIXLAB | $N = 756$ multi-persona dialogue sessions | Open-Domain Multi-Persona Dialogue Preference Gating |
+
+> **CUPID Benchmark Notes:**
+> On out-of-domain open personas (CUPID), the gating model prioritizes safety, achieving 92.7% negative transfer suppression while conservatively suppressing unfamiliar preferences.
