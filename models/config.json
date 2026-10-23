@@ -1,0 +1,19 @@
+{
+  "model_architecture": "AttuneGatingModel",
+  "backbone_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "max_length": 192,
+  "temperature": 0.8453,
+  "tau_star": 0.9,
+  "target_fsr_max": 0.05,
+  "pre_calibration_ece": 0.0242,
+  "post_calibration_ece": 0.0125,
+  "optimal_threshold_metrics": {
+    "threshold": 0.9,
+    "ntr": 0.0,
+    "fsr": 0.0,
+    "accuracy": 1.0
+  },
+  "validation_records_count": 200,
+  "training_records_count": 1600,
+  "training_time_seconds": 975.94
+}

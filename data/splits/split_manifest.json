@@ -1,0 +1,175 @@
+{
+  "version": "1.0.0",
+  "description": "ATTUNE Context-Aware Gating Engine Dataset Splits",
+  "total_records": 2000,
+  "split_counts": {
+    "train": 1360,
+    "val": 320,
+    "test": 320
+  },
+  "split_proportions": {
+    "train": 0.68,
+    "val": 0.16,
+    "test": 0.16
+  },
+  "leakage_verification": {
+    "family_overlap_train_val": 0,
+    "family_overlap_train_test": 0,
+    "family_overlap_val_test": 0,
+    "held_out_benchmark_leakage": false,
+    "status": "PASSED_STRICT_ZERO_LEAKAGE"
+  },
+  "splits_analysis": {
+    "train": {
+      "count": 1360,
+      "unique_families": 34,
+      "families": [
+        "algo_disjoint_set_union",
+        "algo_divide_strassen_matrix",
+        "algo_dp_knapsack_memo",
+        "algo_flow_edmonds_karp",
+        "algo_geometry_convex_hull",
+        "algo_graph_dijkstra_heap",
+        "algo_graph_kosaraju_scc",
+        "algo_hashing_cuckoo_cycles",
+        "algo_search_a_star_heuristic",
+        "db_docker_volume_ownership",
+        "db_git_interactive_rebase",
+        "db_k8s_pod_affinity_rules",
+        "db_kafka_consumer_rebalance",
+        "db_linux_systemd_restart_loop",
+        "db_mysql_innodb_buffer_pool",
+        "db_nginx_upstream_balancing",
+        "db_postgres_btree_index_scan",
+        "syntax_bash_parameter_expansion",
+        "syntax_c_function_pointer_cast",
+        "syntax_cpp_sfinae_concepts",
+        "syntax_go_channel_select_leak",
+        "syntax_java_virtual_threads",
+        "syntax_kotlin_coroutine_context",
+        "syntax_python_asyncio_taskgroup",
+        "syntax_python_dunder_descriptors",
+        "sys_cache_mesi_coherence",
+        "sys_concurrency_mutex_deadlock",
+        "sys_cpu_branch_speculation",
+        "sys_distributed_cap_theorem",
+        "sys_distributed_quorum_reads",
+        "sys_ipc_shm_vs_unix_socket",
+        "sys_memory_numa_affinity",
+        "sys_network_tcp_congestion",
+        "sys_os_epoll_io_multiplexing"
+      ],
+      "gold_applicability": {
+        "1": 544,
+        "0": 816
+      },
+      "scenario_type": {
+        "same_context": 544,
+        "context_shift": 408,
+        "explicit_reversal": 272,
+        "ambiguous_neutral": 136
+      },
+      "preference_scope": {
+        "algorithms_learning": 360,
+        "system_tradeoffs": 360,
+        "database_tools": 320,
+        "syntax_lookup": 320
+      },
+      "candidate_preference_distribution": {
+        "DEPTH:CONCISE": 170,
+        "DEPTH:DETAILED": 170,
+        "PEDAGOGY:INTUITIVE": 170,
+        "PEDAGOGY:FORMAL": 170,
+        "ILLUSTRATION:WORKED_TRACE": 170,
+        "ILLUSTRATION:CONCEPTUAL": 170,
+        "STRUCTURE:MODULAR": 170,
+        "STRUCTURE:CONTINUOUS": 170
+      }
+    },
+    "val": {
+      "count": 320,
+      "unique_families": 8,
+      "families": [
+        "algo_sort_quicksort_pivot",
+        "algo_string_kmp_automaton",
+        "db_redis_eviction_policies",
+        "db_sql_acid_mvcc_isolation",
+        "syntax_rust_borrow_lifetimes",
+        "syntax_rust_error_thiserror",
+        "sys_os_virtual_mem_paging",
+        "sys_raft_leader_election"
+      ],
+      "gold_applicability": {
+        "1": 128,
+        "0": 192
+      },
+      "scenario_type": {
+        "same_context": 128,
+        "context_shift": 96,
+        "explicit_reversal": 64,
+        "ambiguous_neutral": 32
+      },
+      "preference_scope": {
+        "algorithms_learning": 80,
+        "system_tradeoffs": 80,
+        "database_tools": 80,
+        "syntax_lookup": 80
+      },
+      "candidate_preference_distribution": {
+        "ILLUSTRATION:CONCEPTUAL": 40,
+        "STRUCTURE:MODULAR": 40,
+        "STRUCTURE:CONTINUOUS": 40,
+        "DEPTH:CONCISE": 40,
+        "DEPTH:DETAILED": 40,
+        "PEDAGOGY:INTUITIVE": 40,
+        "PEDAGOGY:FORMAL": 40,
+        "ILLUSTRATION:WORKED_TRACE": 40
+      }
+    },
+    "test": {
+      "count": 320,
+      "unique_families": 8,
+      "families": [
+        "algo_tree_avl_balance",
+        "algo_tree_red_black_rules",
+        "db_tar_curl_streaming_pipe",
+        "db_terraform_state_concurrency",
+        "syntax_sql_window_partition_by",
+        "syntax_ts_conditional_infer",
+        "sys_storage_lsm_vs_btree",
+        "sys_two_phase_commit_atomic"
+      ],
+      "gold_applicability": {
+        "1": 128,
+        "0": 192
+      },
+      "scenario_type": {
+        "same_context": 128,
+        "context_shift": 96,
+        "explicit_reversal": 64,
+        "ambiguous_neutral": 32
+      },
+      "preference_scope": {
+        "algorithms_learning": 80,
+        "system_tradeoffs": 80,
+        "database_tools": 80,
+        "syntax_lookup": 80
+      },
+      "candidate_preference_distribution": {
+        "STRUCTURE:MODULAR": 40,
+        "STRUCTURE:CONTINUOUS": 40,
+        "DEPTH:CONCISE": 40,
+        "DEPTH:DETAILED": 40,
+        "PEDAGOGY:INTUITIVE": 40,
+        "PEDAGOGY:FORMAL": 40,
+        "ILLUSTRATION:WORKED_TRACE": 40,
+        "ILLUSTRATION:CONCEPTUAL": 40
+      }
+    }
+  },
+  "file_checksums": {
+    "train_md5": "0faaa0cb33009e5c41405800c48d9b57",
+    "val_md5": "29316ad9a72acd1625e3b7d5857f22db",
+    "test_md5": "888571dae035deb1990f830378a98e00"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "metadata": {
+    "test_split_path": "D:\\PROJECT_SOUCEFILE\\attune\\data\\splits\\test.jsonl",
+    "num_test_records": 200,
+    "timestamp": "2026-10-23T14:34:07Z",
+    "tau_star": 0.9,
+    "temperature": 0.8453
+  },
+  "comparative_systems": [
+    {
+      "system_name": "System A (Zero-Shot Base)",
+      "accuracy": 0.6,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "ntr": 0.0,
+      "fsr": 1.0,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_ms_per_query": 0.0
+    },
+    {
+      "system_name": "System B (Fixed Profile)",
+      "accuracy": 0.4,
+      "precision": 0.4,
+      "recall": 1.0,
+      "f1": 0.5714285714285714,
+      "ntr": 1.0,
+      "fsr": 0.0,
+      "rcr": 1.0,
+      "num_records": 200,
+      "latency_ms_per_query": 0.0
+    },
+    {
+      "system_name": "System C (History Retrieval - RAG)",
+      "accuracy": 0.6,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "ntr": 0.0,
+      "fsr": 1.0,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_ms_per_query": 22.35
+    },
+    {
+      "system_name": "System D (Deterministic Rule Gate)",
+      "accuracy": 0.9,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1": 0.8888888888888888,
+      "ntr": 0.16666666666666666,
+      "fsr": 0.0,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_ms_per_query": 0.01
+    },
+    {
+      "system_name": "System E (ATTUNE Gating Model)",
+      "accuracy": 0.985,
+      "precision": 1.0,
+      "recall": 0.9625,
+      "f1": 0.9808917197452229,
+      "ntr": 0.0,
+      "fsr": 0.0375,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_ms_per_query": 24.73,
+      "p99_latency_ms": 34.72
+    }
+  ],
+  "external_benchmarks": [
+    {
+      "benchmark": "PrefEval",
+      "num_records": 150,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "ntr": 0.0,
+      "fsr": 0.0,
+      "rcr": 0.0,
+      "mean_latency_ms": 24.5
+    },
+    {
+      "benchmark": "CUPID",
+      "num_records": 756,
+      "accuracy": 0.671957671957672,
+      "precision": 0.5256410256410257,
+      "recall": 0.1626984126984127,
+      "f1": 0.24848484848484848,
+      "ntr": 0.07341269841269842,
+      "fsr": 0.8373015873015873,
+      "rcr": 0.0,
+      "mean_latency_ms": 20.67
+    }
+  ]
+}

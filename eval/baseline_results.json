@@ -1,0 +1,59 @@
+{
+  "eval_dataset": "D:\\PROJECT_SOUCEFILE\\attune\\data\\splits\\val.jsonl",
+  "num_records": 200,
+  "timestamp": "2026-10-23T14:02:14Z",
+  "systems": [
+    {
+      "system_name": "System A (Zero-Shot Base)",
+      "accuracy": 0.6,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "ntr": 0.0,
+      "fsr": 1.0,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_seconds": 0.0,
+      "latency_ms_per_query": 0.0
+    },
+    {
+      "system_name": "System B (Fixed Profile)",
+      "accuracy": 0.4,
+      "precision": 0.4,
+      "recall": 1.0,
+      "f1": 0.5714285714285714,
+      "ntr": 1.0,
+      "fsr": 0.0,
+      "rcr": 1.0,
+      "num_records": 200,
+      "latency_seconds": 0.0,
+      "latency_ms_per_query": 0.0
+    },
+    {
+      "system_name": "System C (History Retrieval - RAG)",
+      "accuracy": 0.6,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "ntr": 0.0,
+      "fsr": 1.0,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_seconds": 56.3492,
+      "latency_ms_per_query": 281.75
+    },
+    {
+      "system_name": "System D (Deterministic Rule Gate)",
+      "accuracy": 0.9,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1": 0.8888888888888888,
+      "ntr": 0.16666666666666666,
+      "fsr": 0.0,
+      "rcr": 0.0,
+      "num_records": 200,
+      "latency_seconds": 0.0019,
+      "latency_ms_per_query": 0.01
+    }
+  ]
+}
