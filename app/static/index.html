@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ATTUNE | Context-Aware Preference Gating Engine</title>
+  <title>ATTUNE — The Adaptive AI for Everyone</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Marked.js for Markdown Rendering -->
+  <!-- Marked.js for Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,26 +37,15 @@
     }
   </script>
   <style>
-    /* Custom scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.6);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(51, 65, 85, 0.8);
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(100, 116, 139, 0.9);
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.9); }
     .prose pre {
-      background-color: #0f172a !important;
+      background-color: #0b1120 !important;
       border: 1px solid #1e293b !important;
       padding: 0.75rem 1rem !important;
-      border-radius: 0.5rem !important;
+      border-radius: 0.75rem !important;
       font-size: 0.85rem !important;
       overflow-x: auto;
     }
@@ -73,97 +62,128 @@
       padding: 0 !important;
       color: #e2e8f0 !important;
     }
-    .pulse-glow {
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    .tab-active {
+      border-bottom: 2px solid #06b6d4;
+      color: #38bdf8;
+      font-weight: 600;
     }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
 
   <!-- TOP HEADER -->
-  <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur sticky top-0 z-40 px-6 py-3.5">
+  <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur sticky top-0 z-40 px-6 py-3.5">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-      <!-- Brand & Title -->
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-          <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      
+      <!-- Brand & Persona Banner -->
+      <div class="flex items-center space-x-3.5">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyan-500 via-teal-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         </div>
         <div>
           <div class="flex items-center space-x-2">
-            <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">ATTUNE</h1>
-            <span class="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 uppercase">Phase 5 Production</span>
+            <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-cyan-200 bg-clip-text text-transparent">
+              ATTUNE
+            </h1>
+            <span class="text-[10px] font-mono tracking-widest px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/80 uppercase font-semibold">
+              Universal Adaptive AI
+            </span>
           </div>
-          <p class="text-xs text-slate-400">Context-Aware Preference Gating Engine for Technical Explanations</p>
+          <p class="text-xs text-slate-400">Personalized for Students, News Readers, Everyday Citizens & Researchers</p>
         </div>
       </div>
 
-      <!-- Live Research Badges -->
+      <!-- Live Research & Governance Badges -->
       <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/50 text-emerald-300">
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 shadow-sm">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span>Accuracy:</span>
-          <span class="font-bold text-emerald-200" id="badge-accuracy">98.5%</span>
+          <span class="font-bold text-emerald-200">98.5%</span>
         </div>
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/50 text-cyan-300">
-          <span>NTR:</span>
-          <span class="font-bold text-cyan-200" id="badge-ntr">0.0%</span>
-          <span class="text-[10px] text-cyan-400/80">(Over-Pers)</span>
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/60 text-cyan-300 shadow-sm">
+          <span>Negative Transfer:</span>
+          <span class="font-bold text-cyan-200">0.0%</span>
         </div>
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 text-indigo-300">
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-indigo-300 shadow-sm">
           <span>Gate:</span>
-          <span class="font-bold text-indigo-200" id="badge-gate">&tau;* = 0.900</span>
+          <span class="font-bold text-indigo-200">&tau;* = 0.900</span>
         </div>
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-slate-300">
-          <span>Latency:</span>
-          <span class="font-bold text-slate-200" id="badge-latency">&sim;24 ms</span>
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-950/40 border border-purple-800/60 text-purple-300 shadow-sm">
+          <span>Privacy:</span>
+          <span class="font-bold text-purple-200">User Controlled</span>
         </div>
       </div>
+
     </div>
   </header>
 
-  <!-- RECRUITER PRESETS TOOLBAR -->
-  <section class="border-b border-slate-800 bg-slate-900/40 px-6 py-2.5">
-    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-      <div class="flex items-center space-x-2 text-xs text-slate-400">
-        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span class="font-bold uppercase tracking-wider text-slate-300">Recruiter Demo Presets:</span>
+  <!-- UNIVERSAL SCENARIO PRESETS TOOLBAR -->
+  <section class="border-b border-slate-800 bg-slate-900/40 px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3">
+      
+      <div class="flex items-center space-x-2 text-xs font-semibold text-slate-300">
+        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+        <span class="uppercase tracking-wider">Universal Scenario Demos (1-Click Replay):</span>
       </div>
 
-      <!-- Presets & Actions -->
-      <div class="flex flex-wrap items-center gap-2">
-        <!-- Preset A -->
-        <button id="btn-preset-a" onclick="runPreset('A')" class="group text-left px-3.5 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-800/60 text-amber-200 text-xs font-medium transition flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-          <span><strong>Preset A:</strong> Context Shift (DSA &rarr; Git CLI)</span>
-          <span class="text-[10px] text-amber-400/80 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">Suppressed</span>
-        </button>
+      <!-- 4 Universal Presets -->
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        
+        <!-- Preset 1: Student -->
+        <div class="flex items-center rounded-lg border border-emerald-800/60 bg-emerald-950/40 overflow-hidden shadow-sm">
+          <div class="px-2.5 py-1.5 bg-emerald-900/50 font-bold text-emerald-200 flex items-center space-x-1">
+            <span>🎓 Student:</span>
+          </div>
+          <button onclick="runUniversalPreset('1A')" class="px-2.5 py-1.5 hover:bg-emerald-800/40 text-emerald-200 transition border-r border-emerald-800/40" title="Explain photosynthesis using cooking analogies">
+            1A. Photosynthesis <span class="text-[10px] text-emerald-400 font-mono">(Analogy)</span>
+          </button>
+          <button onclick="runUniversalPreset('1B')" class="px-2.5 py-1.5 hover:bg-emerald-800/40 text-emerald-200 transition" title="Followup: What is the formula for glucose? -> Suppressed for pure fact">
+            1B. Glucose Formula <span class="text-[10px] text-amber-300 font-mono">(Suppressed)</span>
+          </button>
+        </div>
 
-        <!-- Preset B -->
-        <button id="btn-preset-b" onclick="runPreset('B')" class="group text-left px-3.5 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800/60 text-emerald-200 text-xs font-medium transition flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span><strong>Preset B:</strong> Same-Domain (DSA &rarr; AVL)</span>
-          <span class="text-[10px] text-emerald-400/80 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">Applied</span>
-        </button>
+        <!-- Preset 2: News Reader -->
+        <div class="flex items-center rounded-lg border border-cyan-800/60 bg-cyan-950/40 overflow-hidden shadow-sm">
+          <div class="px-2.5 py-1.5 bg-cyan-900/50 font-bold text-cyan-200 flex items-center space-x-1">
+            <span>📰 News Reader:</span>
+          </div>
+          <button onclick="runUniversalPreset('2A')" class="px-2.5 py-1.5 hover:bg-cyan-800/40 text-cyan-200 transition border-r border-cyan-800/40" title="Summarize EV subsidies in 3 neutral bullet points with both sides">
+            2A. EV Subsidies <span class="text-[10px] text-cyan-300 font-mono">(Neutral)</span>
+          </button>
+          <button onclick="runUniversalPreset('2B')" class="px-2.5 py-1.5 hover:bg-cyan-800/40 text-cyan-200 transition" title="Followup: Suggest a fun movie -> Suppressed for casual chat">
+            2B. Movie Suggestion <span class="text-[10px] text-amber-300 font-mono">(Suppressed)</span>
+          </button>
+        </div>
 
-        <!-- Preset C -->
-        <button id="btn-preset-c" onclick="runPreset('C')" class="group text-left px-3.5 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800/60 text-rose-200 text-xs font-medium transition flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-rose-400"></span>
-          <span><strong>Preset C:</strong> Explicit User Override</span>
-          <span class="text-[10px] text-rose-400/80 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-800/40">Tier 1 Golden Rule</span>
+        <!-- Preset 3: Everyday Life -->
+        <div class="flex items-center rounded-lg border border-amber-800/60 bg-amber-950/40 overflow-hidden shadow-sm">
+          <div class="px-2.5 py-1.5 bg-amber-900/50 font-bold text-amber-200 flex items-center space-x-1">
+            <span>🏠 Everyday Life:</span>
+          </div>
+          <button onclick="runUniversalPreset('3A')" class="px-2.5 py-1.5 hover:bg-amber-800/40 text-amber-200 transition border-r border-amber-800/40" title="Translate medical blood test jargon for grandma">
+            3A. Blood Test Jargon <span class="text-[10px] text-emerald-400 font-mono">(Grandma)</span>
+          </button>
+          <button onclick="runUniversalPreset('3B')" class="px-2.5 py-1.5 hover:bg-amber-800/40 text-amber-200 transition" title="Followup: Emergency doctor contact -> Suppressed for direct numbers">
+            3B. Emergency Contact <span class="text-[10px] text-rose-300 font-mono">(Direct Numbers)</span>
+          </button>
+        </div>
+
+        <!-- Preset 4: Researcher -->
+        <button onclick="runUniversalPreset('4')" class="px-3 py-1.5 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-800/60 text-indigo-200 font-medium transition flex items-center space-x-1.5 shadow-sm">
+          <span>🔬 <strong>Researcher:</strong> Transformer Critique</span>
+          <span class="text-[10px] text-indigo-300 font-mono bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800/40">Academic</span>
         </button>
 
         <!-- Reset Button -->
-        <button id="btn-reset" onclick="resetSession()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition border border-slate-700 flex items-center space-x-1.5">
+        <button onclick="resetSession()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span>Reset Session</span>
+          <span>Reset</span>
         </button>
+
       </div>
     </div>
   </section>
@@ -171,55 +191,59 @@
   <!-- MAIN DUAL-COLUMN WORKSPACE -->
   <main class="max-w-7xl mx-auto flex-1 w-full px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-    <!-- LEFT COLUMN: CHAT WINDOW (7 COLS) -->
-    <section class="lg:col-span-7 flex flex-col bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-xl min-h-[640px]">
+    <!-- LEFT COLUMN: CONVERSATIONAL CHAT (7 COLS) -->
+    <section class="lg:col-span-7 flex flex-col bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-xl min-h-[660px]">
       
-      <!-- Chat Header -->
+      <!-- Chat Header & Active Persona Banner -->
       <div class="px-5 py-3.5 border-b border-slate-800/80 bg-slate-900/80 flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-          <span class="text-sm font-semibold text-slate-200">Interactive Technical Dialogue</span>
+        <div class="flex items-center space-x-2.5">
+          <span id="persona-icon" class="text-base">🎓</span>
+          <div>
+            <span id="persona-title" class="text-sm font-bold text-slate-200">Student & Learning Mode</span>
+            <span id="domain-pill" class="ml-2 text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">
+              education_learning
+            </span>
+          </div>
         </div>
-        <div id="active-style-badge" class="text-xs font-mono px-2.5 py-1 rounded bg-slate-800/80 text-slate-300 border border-slate-700/60">
-          Target Preference: <span class="text-cyan-400 font-semibold" id="header-pref-label">DEPTH:CONCISE</span>
+        <div class="text-xs font-mono text-slate-400">
+          Threshold: <span class="text-indigo-300 font-bold">&tau;* = 0.900</span>
         </div>
       </div>
 
-      <!-- Messages Scroll Area -->
-      <div id="messages-container" class="flex-1 overflow-y-auto p-5 space-y-4 max-h-[520px]">
-        <!-- Initial Welcome Message -->
+      <!-- Messages Thread -->
+      <div id="messages-container" class="flex-1 overflow-y-auto p-5 space-y-4 max-h-[530px]">
+        <!-- Welcome Message -->
         <div class="flex items-start space-x-3">
-          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-teal-500 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-400 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950 shadow-md">
             &alpha;
           </div>
-          <div class="flex-1 bg-slate-800/70 border border-slate-700/50 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 leading-relaxed shadow-sm">
+          <div class="flex-1 bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 leading-relaxed shadow-sm">
             <div class="flex items-center justify-between mb-2">
               <span class="font-semibold text-cyan-400 text-xs">ATTUNE Assistant</span>
-              <span class="text-[10px] font-mono text-slate-400">System Ready</span>
+              <span class="text-[10px] font-mono text-slate-400">Universal Mode Online</span>
             </div>
-            <p>Welcome to the <strong>ATTUNE Gating Engine</strong> interactive evaluation dashboard.</p>
+            <p>Welcome to <strong>ATTUNE</strong> — the adaptive AI companion designed for everyone.</p>
             <p class="mt-2 text-slate-300 text-xs leading-relaxed">
-              In this session, candidate preferences are tracked in memory. When you send technical queries, ATTUNE's 2-tier architecture predicts applicability probability <code class="text-cyan-300">&pcirc;</code> and gates against the calibrated threshold <code class="text-indigo-300">&tau;* = 0.900</code> to prevent negative transfer.
+              Unlike static AI memory that over-personalizes everything, ATTUNE dynamically checks if your previous preferences actually belong to your current question. Click any demo preset above or ask your own question!
             </p>
-            <div class="mt-3 text-xs text-slate-400 border-t border-slate-700/60 pt-2 flex items-center space-x-2">
-              <span class="text-cyan-400 font-semibold">&bull; Tip:</span>
-              <span>Click any recruiter preset above or enter custom CS queries below.</span>
-            </div>
           </div>
         </div>
       </div>
 
       <!-- Quick Prompt Suggestion Chips -->
-      <div class="px-5 py-2 bg-slate-900/60 border-t border-slate-800/60 flex items-center gap-2 overflow-x-auto text-[11px] text-slate-400">
-        <span class="text-slate-500 flex-shrink-0">Suggestions:</span>
-        <button onclick="setQuery('Explain how AVL tree rotation and balancing operate under edge-case conditions.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
-          AVL Tree Rotations (DSA)
+      <div class="px-5 py-2.5 bg-slate-900/60 border-t border-slate-800/60 flex items-center gap-2 overflow-x-auto text-[11px] text-slate-400">
+        <span class="text-slate-500 flex-shrink-0">Try Asking:</span>
+        <button onclick="setQuery('Explain photosynthesis using cooking analogies for 5th grade science.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
+          🌿 Photosynthesis Analogy
         </button>
-        <button onclick="setQuery('How do I cherry-pick a commit without committing it in Git?')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
-          Git Cherry-Pick (Tools)
+        <button onclick="setQuery('What is the exact chemical formula for glucose?')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
+          🧪 Glucose Formula
         </button>
-        <button onclick="setQuery('Actually, give me a detailed breakdown and ignore my previous preference for concise answers.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
-          Explicit Override
+        <button onclick="setQuery('Summarize electric vehicle subsidies in 3 neutral bullet points with both sides.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
+          📰 EV Subsidies
+        </button>
+        <button onclick="setQuery('Translate this medical blood test jargon into simple words my grandmother can understand.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap border border-slate-700/50">
+          🩺 Blood Test Translation
         </button>
       </div>
 
@@ -229,7 +253,7 @@
           <textarea
             id="chat-input"
             rows="2"
-            placeholder="Ask a technical CS question or give preference feedback (e.g., 'Be concise in DSA')..."
+            placeholder="Ask a question or request a style (e.g. 'Explain in simple cooking analogies', 'Give neutral news bullets')..."
             class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-none"
             onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSend(event); }"
           ></textarea>
@@ -237,9 +261,9 @@
         <button
           type="submit"
           id="send-btn"
-          class="h-11 px-5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-500 hover:to-teal-400 text-slate-950 font-bold text-sm shadow-md shadow-cyan-600/30 transition flex items-center justify-center space-x-1.5 flex-shrink-0"
+          class="h-11 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 hover:from-cyan-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-md shadow-cyan-500/25 transition flex items-center justify-center space-x-1.5 flex-shrink-0"
         >
-          <span>Send</span>
+          <span>Ask</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
           </svg>
@@ -247,132 +271,138 @@
       </form>
     </section>
 
-
-    <!-- RIGHT COLUMN: POLICY INSPECTOR DRAWER (5 COLS) -->
+    <!-- RIGHT COLUMN: DUAL TAB PANEL (5 COLS) -->
     <aside class="lg:col-span-5 flex flex-col space-y-4">
 
-      <!-- POLICY INSPECTOR MAIN CARD -->
-      <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+      <div class="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl overflow-hidden flex flex-col min-h-[660px]">
         
-        <!-- Drawer Header -->
-        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
-          <div class="flex items-center space-x-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-teal-400 animate-ping"></span>
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-200">Policy Inspector</h2>
-          </div>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">Live Telemetry</span>
+        <!-- Tab Navigation Switcher -->
+        <div class="flex border-b border-slate-800 bg-slate-900/90 text-xs font-semibold">
+          <button
+            id="tab-btn-inspector"
+            onclick="switchTab('inspector')"
+            class="flex-1 py-3 px-4 text-center transition flex items-center justify-center space-x-2 tab-active"
+          >
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            <span>Policy Inspector</span>
+          </button>
+          <button
+            id="tab-btn-voice"
+            onclick="switchTab('voice')"
+            class="flex-1 py-3 px-4 text-center text-slate-400 hover:text-slate-200 transition flex items-center justify-center space-x-2"
+          >
+            <span>My Voice Memory</span>
+            <span id="voice-count-badge" class="px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 text-[10px] border border-cyan-800 font-mono">1</span>
+          </button>
         </div>
 
-        <!-- 1. DECISION STATUS BADGE -->
-        <div class="mt-4">
-          <label class="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1.5">Gating Decision</label>
-          <div id="status-badge-container" class="p-3.5 rounded-xl border transition-all duration-300 bg-slate-950/60 border-slate-800 flex items-center space-x-3">
-            <div id="status-icon" class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <div id="status-title" class="text-sm font-bold text-slate-300">STANDBY</div>
-              <div id="status-subtitle" class="text-xs text-slate-400 mt-0.5">Send a turn to view real-time gate evaluation.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. CALIBRATED PROBABILITY GAUGE -->
-        <div class="mt-5 p-4 rounded-xl bg-slate-950/80 border border-slate-800/80">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-mono text-slate-400">Applicability Probability (&pcirc;)</span>
-            <span id="prob-value" class="text-base font-bold font-mono text-cyan-300">--</span>
-          </div>
-
-          <!-- Progress Bar Container -->
-          <div class="relative w-full h-3.5 bg-slate-800 rounded-full overflow-visible mb-2.5">
-            <!-- Progress Fill -->
-            <div
-              id="prob-bar-fill"
-              class="h-full rounded-full transition-all duration-500 bg-slate-700"
-              style="width: 0%;"
-            ></div>
-            
-            <!-- Threshold Marker (tau* = 0.900 -> 90%) -->
-            <div
-              class="absolute top-[-4px] bottom-[-4px] w-0.5 bg-indigo-400 z-10 shadow-sm"
-              style="left: 90%;"
-              title="Calibrated Decision Threshold tau* = 0.900"
-            >
-              <div class="absolute -top-4 -translate-x-1/2 text-[9px] font-mono px-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">
-                &tau;*=0.90
+        <!-- ============================================================= -->
+        <!-- TAB A: POLICY INSPECTOR -->
+        <!-- ============================================================= -->
+        <div id="tab-content-inspector" class="p-5 space-y-4 flex-1">
+          
+          <!-- 1. Gating Decision Status Badge -->
+          <div>
+            <label class="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1.5">Gating Decision</label>
+            <div id="status-badge-container" class="p-3.5 rounded-xl border transition-all duration-300 bg-slate-950/60 border-slate-800 flex items-center space-x-3">
+              <div id="status-icon" class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <div id="status-title" class="text-sm font-bold text-slate-300">STANDBY</div>
+                <div id="status-subtitle" class="text-xs text-slate-400 mt-0.5">Send a query to observe real-time preference gating.</div>
               </div>
             </div>
           </div>
 
-          <!-- Subtext Legend -->
-          <div class="flex items-center justify-between text-[10px] font-mono text-slate-500">
-            <span>0.00 (Suppress)</span>
-            <span class="text-indigo-400">&tau;* = 0.900 (Gate Cutoff)</span>
-            <span>1.00 (Apply)</span>
+          <!-- 2. Calibrated Probability Gauge -->
+          <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-mono text-slate-400">Applicability Probability (&pcirc;)</span>
+              <span id="prob-value" class="text-base font-bold font-mono text-cyan-300">--</span>
+            </div>
+
+            <!-- Progress Bar with tau* Marker -->
+            <div class="relative w-full h-3.5 bg-slate-800 rounded-full overflow-visible mb-2.5">
+              <div id="prob-bar-fill" class="h-full rounded-full transition-all duration-500 bg-slate-700" style="width: 0%;"></div>
+              
+              <!-- Threshold Cutoff at 90% -->
+              <div class="absolute top-[-4px] bottom-[-4px] w-0.5 bg-indigo-400 z-10 shadow-sm" style="left: 90%;" title="Calibrated Cutoff tau* = 0.900">
+                <div class="absolute -top-4 -translate-x-1/2 text-[9px] font-mono px-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">
+                  &tau;*=0.90
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[10px] font-mono text-slate-500">
+              <span>0.00 (Suppress)</span>
+              <span class="text-indigo-400">&tau;* = 0.900 (Gate Cutoff)</span>
+              <span>1.00 (Apply)</span>
+            </div>
+          </div>
+
+          <!-- 3. Detected Domain & Persona -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Detected Domain</span>
+              <span id="telemetry-domain" class="text-xs font-bold font-mono text-cyan-300">education_learning</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Active Persona</span>
+              <span id="telemetry-persona" class="text-xs font-bold font-mono text-indigo-300">Student</span>
+            </div>
+          </div>
+
+          <!-- 4. Gating Reason & Policy Breakdown -->
+          <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Gating Rationale</span>
+              <span id="telemetry-tier" class="text-[10px] font-mono text-slate-500">Tier 2 Calibrated Model</span>
+            </div>
+            <div id="telemetry-reason" class="text-xs text-slate-300 leading-relaxed">
+              Awaiting query interaction.
+            </div>
+          </div>
+
+          <!-- 5. Latency & Temperature -->
+          <div class="pt-2 border-t border-slate-800 grid grid-cols-3 gap-2 text-center font-mono">
+            <div class="p-2 rounded-lg bg-slate-950/40 border border-slate-800/60">
+              <span class="text-[10px] text-slate-500 block">Latency</span>
+              <span id="telemetry-latency" class="text-xs font-bold text-slate-300">-- ms</span>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-950/40 border border-slate-800/60">
+              <span class="text-[10px] text-slate-500 block">Temperature</span>
+              <span class="text-xs font-bold text-slate-300">T* = 0.845</span>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-950/40 border border-slate-800/60">
+              <span class="text-[10px] text-slate-500 block">NTR Safety</span>
+              <span class="text-xs font-bold text-emerald-400">0.0% FP</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- TAB B: MY VOICE MEMORY -->
+        <!-- ============================================================= -->
+        <div id="tab-content-voice" class="p-5 space-y-4 flex-1 hidden">
+          <div class="border-b border-slate-800 pb-3">
+            <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-1.5">
+              <span>👤 My Voice & Privacy Controls</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">
+              ATTUNE is completely transparent. Here is what the AI has learned about you. You can edit or delete any preference at any time.
+            </p>
+          </div>
+
+          <!-- Preferences List Container -->
+          <div id="voice-preferences-list" class="space-y-3">
+            <!-- Dynamically populated -->
           </div>
         </div>
 
-        <!-- 3. ACTIVE CANDIDATE PREFERENCE & SCOPE -->
-        <div class="mt-4 grid grid-cols-2 gap-3">
-          <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Candidate Token</span>
-            <span id="telemetry-pref" class="text-xs font-bold font-mono text-cyan-300">DEPTH:CONCISE</span>
-          </div>
-          <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Domain Scope</span>
-            <span id="telemetry-scope" class="text-xs font-bold font-mono text-indigo-300">algorithms_learning</span>
-          </div>
-        </div>
-
-        <!-- 4. SUPPORTING EVIDENCE / RECENT OVERRIDE -->
-        <div class="mt-4 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Active Supporting Evidence</span>
-            <span id="telemetry-tier" class="text-[10px] font-mono text-slate-500">Tier 2 Calibrated Model</span>
-          </div>
-          <div id="telemetry-evidence" class="text-xs text-slate-300 italic font-sans leading-relaxed">
-            "User feedback: 'Keep algorithm explanations concise with minimal boilerplate.'"
-          </div>
-          <div id="override-container" class="mt-2.5 pt-2 border-t border-slate-800/80 hidden">
-            <span class="text-[10px] font-mono uppercase text-rose-400 font-bold block mb-0.5">&bull; Active Override Detected:</span>
-            <span id="telemetry-override" class="text-xs text-rose-300 font-mono">None</span>
-          </div>
-        </div>
-
-        <!-- 5. ENGINE TELEMETRY METRICS -->
-        <div class="mt-4 pt-3.5 border-t border-slate-800 grid grid-cols-3 gap-2 text-center font-mono">
-          <div class="p-2 rounded-lg bg-slate-950/40 border border-slate-800/60">
-            <span class="text-[10px] text-slate-500 block">Latency</span>
-            <span id="telemetry-latency" class="text-xs font-bold text-slate-300">-- ms</span>
-          </div>
-          <div class="p-2 rounded-lg bg-slate-950/40 border border-slate-800/60">
-            <span class="text-[10px] text-slate-500 block">Temperature</span>
-            <span id="telemetry-temp" class="text-xs font-bold text-slate-300">T* = 0.845</span>
-          </div>
-          <div class="p-2 rounded-lg bg-slate-950/40 border border-slate-800/60">
-            <span class="text-[10px] text-slate-500 block">NTR Safety</span>
-            <span class="text-xs font-bold text-emerald-400">0.0% FP</span>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ARCHITECTURAL GUARANTEES SUMMARY CARD -->
-      <div class="bg-slate-900/40 border border-slate-800/70 rounded-2xl p-4 text-xs text-slate-400 space-y-2">
-        <div class="font-bold text-slate-300 flex items-center space-x-1.5">
-          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          <span>Production Graduation Guarantees:</span>
-        </div>
-        <ul class="space-y-1.5 list-disc list-inside text-[11px] text-slate-400 pl-1">
-          <li><strong>Tier 1 Golden Rule:</strong> Deterministic 0-turn latency suppression when recent override detected.</li>
-          <li><strong>Tier 2 Statistical Gate:</strong> Temperature-scaled ($T^* = 0.8453$) probability calibrated against $\tau^* = 0.9000$.</li>
-          <li><strong>Zero Negative Transfer:</strong> $0.0\%$ over-personalization rate across 200 held-out test episodes.</li>
-        </ul>
       </div>
 
     </aside>
@@ -380,33 +410,37 @@
 
   <!-- JAVASCRIPT APPLICATION LOGIC -->
   <script>
-    const SESSION_ID = 'demo_recruiter_session_' + Math.random().toString(36).substring(2, 9);
+    const SESSION_ID = 'user_universal_session_' + Math.random().toString(36).substring(2, 9);
     let isProcessing = false;
 
-    // Load initial system status
-    async function loadStatus() {
-      try {
-        const res = await fetch('/api/status');
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('badge-accuracy').textContent = (data.test_accuracy * 100).toFixed(1) + '%';
-          document.getElementById('badge-ntr').textContent = (data.negative_transfer_rate * 100).toFixed(1) + '%';
-          document.getElementById('badge-gate').textContent = `\u03C4* = ${data.tau_star.toFixed(3)}`;
-          document.getElementById('badge-latency').textContent = `~${data.mean_latency_ms.toFixed(1)} ms`;
-          document.getElementById('telemetry-temp').textContent = `T* = ${data.temperature.toFixed(3)}`;
-        }
-      } catch (err) {
-        console.warn('Status endpoint fetch error:', err);
+    // Tab Switching
+    function switchTab(tab) {
+      const inspectorContent = document.getElementById('tab-content-inspector');
+      const voiceContent = document.getElementById('tab-content-voice');
+      const inspectorBtn = document.getElementById('tab-btn-inspector');
+      const voiceBtn = document.getElementById('tab-btn-voice');
+
+      if (tab === 'inspector') {
+        inspectorContent.classList.remove('hidden');
+        voiceContent.classList.add('hidden');
+        inspectorBtn.className = 'flex-1 py-3 px-4 text-center transition flex items-center justify-center space-x-2 tab-active';
+        voiceBtn.className = 'flex-1 py-3 px-4 text-center text-slate-400 hover:text-slate-200 transition flex items-center justify-center space-x-2';
+      } else {
+        inspectorContent.classList.add('hidden');
+        voiceContent.classList.remove('hidden');
+        voiceBtn.className = 'flex-1 py-3 px-4 text-center transition flex items-center justify-center space-x-2 tab-active';
+        inspectorBtn.className = 'flex-1 py-3 px-4 text-center text-slate-400 hover:text-slate-200 transition flex items-center justify-center space-x-2';
+        fetchVoicePreferences();
       }
     }
 
-    // Set query in input box
+    // Set input query
     function setQuery(text) {
       document.getElementById('chat-input').value = text;
       document.getElementById('chat-input').focus();
     }
 
-    // Append a message to the chat view
+    // Append Message to Thread
     function appendMessage(role, content, telemetry = null) {
       const container = document.getElementById('messages-container');
       const div = document.createElement('div');
@@ -419,7 +453,7 @@
           </div>
           <div class="flex-1 bg-slate-800/90 border border-slate-700/70 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-100 shadow-sm">
             <div class="flex items-center justify-between mb-1.5">
-              <span class="font-semibold text-slate-300 text-xs">User</span>
+              <span class="font-semibold text-slate-300 text-xs">You</span>
               <span class="text-[10px] font-mono text-slate-400">${new Date().toLocaleTimeString()}</span>
             </div>
             <p class="whitespace-pre-wrap">${escapeHtml(content)}</p>
@@ -428,18 +462,18 @@
       } else {
         const isApplied = telemetry && telemetry.applied;
         const styleTag = isApplied
-          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono">Style Injected: ${telemetry.candidate_preference}</span>`
-          : `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px] font-mono">Neutral Baseline</span>`;
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono font-medium">Style Injected (${telemetry.candidate_preference})</span>`
+          : `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px] font-mono font-medium">Neutral Baseline (Suppressed)</span>`;
 
         const parsedContent = marked.parse(content);
         div.innerHTML = `
-          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-teal-500 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950 shadow-md">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-400 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950 shadow-md">
             &alpha;
           </div>
           <div class="flex-1 bg-slate-900 border border-slate-700/80 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 shadow-md">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-800">
               <div class="flex items-center space-x-2">
-                <span class="font-semibold text-cyan-400 text-xs">ATTUNE Assistant</span>
+                <span class="font-semibold text-cyan-400 text-xs">${telemetry ? telemetry.persona : 'ATTUNE'}</span>
                 ${styleTag}
               </div>
               <span class="text-[10px] font-mono text-slate-400">${telemetry ? telemetry.latency_ms + ' ms' : ''}</span>
@@ -453,15 +487,19 @@
       container.scrollTop = container.scrollHeight;
     }
 
-    // Update the Policy Inspector drawer with telemetry
+    // Update Policy Inspector UI
     function updatePolicyInspector(telemetry) {
       if (!telemetry) return;
 
       const prob = telemetry.probability !== undefined ? telemetry.probability : 0.0;
-      const tau = telemetry.threshold || 0.900;
       const applied = telemetry.applied;
       const override = telemetry.recent_override;
       const reason = telemetry.reason || '';
+
+      // Update Persona & Domain Banner
+      document.getElementById('persona-icon').textContent = telemetry.domain_icon || '✨';
+      document.getElementById('persona-title').textContent = `${telemetry.persona} Mode`;
+      document.getElementById('domain-pill').textContent = telemetry.domain;
 
       // Probability gauge
       document.getElementById('prob-value').textContent = prob.toFixed(4);
@@ -476,57 +514,123 @@
       const icon = document.getElementById('status-icon');
 
       if (override) {
-        // Suppressed by Golden Rule
         container.className = 'p-3.5 rounded-xl border transition-all duration-300 bg-rose-950/40 border-rose-800 text-rose-200';
         title.className = 'text-sm font-bold text-rose-300';
-        title.textContent = 'SUPPRESSED - USER OVERRIDE';
-        subtitle.textContent = reason || 'Explicit User Override detected via Tier 1 Golden Rule.';
+        title.textContent = 'SUPPRESSED — USER OVERRIDE';
+        subtitle.textContent = reason;
         barFill.className = 'h-full rounded-full transition-all duration-500 bg-rose-500';
         icon.className = 'w-8 h-8 rounded-lg bg-rose-900/60 text-rose-300 flex items-center justify-center flex-shrink-0';
         icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>`;
       } else if (applied) {
-        // Applied
         container.className = 'p-3.5 rounded-xl border transition-all duration-300 bg-emerald-950/40 border-emerald-800 text-emerald-200';
         title.className = 'text-sm font-bold text-emerald-300';
         title.textContent = 'APPLIED (GATE OPEN)';
-        subtitle.textContent = reason || 'Contextually eligible: Candidate preference injected into context.';
+        subtitle.textContent = reason;
         barFill.className = 'h-full rounded-full transition-all duration-500 bg-emerald-400';
         icon.className = 'w-8 h-8 rounded-lg bg-emerald-900/60 text-emerald-300 flex items-center justify-center flex-shrink-0';
         icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
       } else {
-        // Suppressed - Out of Scope / Context Shift
         container.className = 'p-3.5 rounded-xl border transition-all duration-300 bg-amber-950/40 border-amber-800 text-amber-200';
         title.className = 'text-sm font-bold text-amber-300';
-        title.textContent = 'SUPPRESSED - OUT OF SCOPE';
-        subtitle.textContent = reason || 'Context Shift: Candidate preference suppressed to prevent negative transfer.';
+        title.textContent = 'SUPPRESSED — OUT OF SCOPE';
+        subtitle.textContent = reason;
         barFill.className = 'h-full rounded-full transition-all duration-500 bg-amber-400';
         icon.className = 'w-8 h-8 rounded-lg bg-amber-900/60 text-amber-300 flex items-center justify-center flex-shrink-0';
         icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`;
       }
 
-      // Candidate Pref & Scope
-      document.getElementById('telemetry-pref').textContent = telemetry.candidate_preference || 'DEPTH:CONCISE';
-      document.getElementById('header-pref-label').textContent = telemetry.candidate_preference || 'DEPTH:CONCISE';
-      document.getElementById('telemetry-scope').textContent = telemetry.preference_scope || 'algorithms_learning';
-      document.getElementById('telemetry-tier').textContent = telemetry.tier || 'Tier 2 Gating Model';
+      document.getElementById('telemetry-domain').textContent = telemetry.domain;
+      document.getElementById('telemetry-persona').textContent = telemetry.persona;
+      document.getElementById('telemetry-tier').textContent = telemetry.tier;
+      document.getElementById('telemetry-reason').textContent = reason;
       document.getElementById('telemetry-latency').textContent = `${telemetry.latency_ms} ms`;
+    }
 
-      // Evidence & Override
-      const evidence = telemetry.supporting_evidence;
-      if (evidence && evidence.length > 0) {
-        document.getElementById('telemetry-evidence').textContent = `"${evidence[evidence.length - 1]}"`;
-      }
-
-      const overrideContainer = document.getElementById('override-container');
-      if (override) {
-        overrideContainer.classList.remove('hidden');
-        document.getElementById('telemetry-override').textContent = override;
-      } else {
-        overrideContainer.classList.add('hidden');
+    // Fetch and render My Voice memory list
+    async function fetchVoicePreferences() {
+      try {
+        const res = await fetch(`/api/memory?session_id=${SESSION_ID}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        renderVoiceList(data.preferences);
+      } catch (e) {
+        console.error('Error fetching voice memory:', e);
       }
     }
 
-    // Send a chat turn
+    function renderVoiceList(prefs) {
+      const container = document.getElementById('voice-preferences-list');
+      document.getElementById('voice-count-badge').textContent = prefs.length;
+
+      if (!prefs || prefs.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800 text-center text-xs text-slate-400">
+            No active learned preferences in memory. The AI will respond in neutral baseline.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = prefs.map(p => `
+        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-cyan-300 flex items-center space-x-1.5">
+              <span>${p.domain_icon}</span>
+              <span>${p.domain_title} &bull; ${p.dimension}</span>
+            </span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">${p.preference_token}</span>
+          </div>
+          <p class="text-xs text-slate-200 font-sans">${escapeHtml(p.human_readable)}</p>
+          <div class="flex items-center justify-end space-x-2 pt-1 border-t border-slate-800/60">
+            <button onclick="editVoicePreference('${p.id}', '${escapeHtml(p.human_readable)}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
+              ✏️ Edit
+            </button>
+            <button onclick="deleteVoicePreference('${p.id}')" class="px-2.5 py-1 rounded bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 text-[11px] transition">
+              🗑️ Delete / Forget
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Delete a preference from My Voice
+    async function deleteVoicePreference(prefId) {
+      try {
+        const res = await fetch('/api/memory/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: SESSION_ID, pref_id: prefId })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderVoiceList(data.preferences);
+        }
+      } catch (e) {
+        console.error('Delete error:', e);
+      }
+    }
+
+    // Edit a preference
+    async function editVoicePreference(prefId, currentText) {
+      const newText = prompt('Edit your preference description:', currentText);
+      if (!newText || newText.trim() === currentText) return;
+
+      try {
+        const res = await fetch('/api/memory/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: SESSION_ID, pref_id: prefId, new_text: newText.trim() })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderVoiceList(data.preferences);
+        }
+      } catch (e) {
+        console.error('Update error:', e);
+      }
+    }
+
+    // Send a turn
     async function sendTurn(message, options = {}) {
       if (isProcessing || !message.trim()) return;
       isProcessing = true;
@@ -551,16 +655,15 @@
           body: JSON.stringify(payload)
         });
 
-        if (!res.ok) {
-          throw new Error(`Server returned HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
         appendMessage('assistant', data.response, data.telemetry);
         updatePolicyInspector(data.telemetry);
+        if (data.my_voice) renderVoiceList(data.my_voice);
 
       } catch (err) {
-        appendMessage('assistant', `**Error processing query**: ${err.message}`);
+        appendMessage('assistant', `**Error**: ${err.message}`);
       } finally {
         isProcessing = false;
         sendBtn.disabled = false;
@@ -574,55 +677,86 @@
       sendTurn(input.value);
     }
 
-    // Recruiter Presets
-    async function runPreset(type) {
+    // Universal Scenario Presets
+    async function runUniversalPreset(presetKey) {
       if (isProcessing) return;
 
-      if (type === 'A') {
-        // Preset A: Context Shift (DSA -> Git CLI) -> Suppressed
-        await sendTurn('How do I cherry-pick a commit without committing it in Git?', {
-          force_candidate_pref: 'DEPTH:CONCISE',
-          force_scope: 'algorithms_learning',
-          force_evidence: ["User feedback: 'Keep algorithm explanations concise with minimal boilerplate.'"],
+      if (presetKey === '1A') {
+        // Preset 1A: Student -> Photosynthesis using cooking analogies
+        await sendTurn('Explain photosynthesis using cooking analogies for 5th grade science.', {
+          preset_domain: 'education_learning',
+          preset_pref: 'TONE:SIMPLE_ANALOGIES',
+          preset_dimension: 'Tone',
+          preset_human_readable: 'You like science concepts explained using everyday cooking metaphors.',
           force_override: null
         });
-      } else if (type === 'B') {
-        // Preset B: Same-Domain (DSA -> AVL Tree) -> Applied
-        await sendTurn('Explain how AVL tree rotation and balancing operate under edge-case conditions.', {
-          force_candidate_pref: 'DEPTH:CONCISE',
-          force_scope: 'algorithms_learning',
-          force_evidence: ["User feedback: 'Keep algorithm explanations concise with minimal boilerplate.'"],
+      } else if (presetKey === '1B') {
+        // Preset 1B: Student -> Chemical formula for glucose (Suppressed for pure fact)
+        await sendTurn('What is the exact chemical formula for glucose?', {
+          preset_domain: 'education_learning',
           force_override: null
         });
-      } else if (type === 'C') {
-        // Preset C: Explicit User Override -> Instant Tier 1 Suppression
-        await sendTurn('Actually, give me a detailed breakdown and ignore my previous preference for concise answers.', {
-          force_candidate_pref: 'DEPTH:CONCISE',
-          force_scope: 'algorithms_learning',
-          force_evidence: ["User feedback: 'Keep algorithm explanations concise with minimal boilerplate.'"],
-          force_override: 'Actually, give me a detailed breakdown and ignore my previous preference for concise answers.'
+      } else if (presetKey === '2A') {
+        // Preset 2A: News Reader -> EV subsidies in 3 neutral bullet points with both sides
+        await sendTurn('Summarize electric vehicle subsidies in 3 neutral bullet points with both sides.', {
+          preset_domain: 'news_current_events',
+          preset_pref: 'PERSPECTIVE:BALANCED_NEUTRAL',
+          preset_dimension: 'Perspective',
+          preset_human_readable: 'You prefer policy news summarized in balanced neutral bullet points covering both perspectives.',
+          force_override: null
+        });
+      } else if (presetKey === '2B') {
+        // Preset 2B: News Reader -> Movie suggestion (Suppressed for casual chat)
+        await sendTurn('Suggest a fun comedy movie to watch this weekend.', {
+          preset_domain: 'news_current_events',
+          force_override: null
+        });
+      } else if (presetKey === '3A') {
+        // Preset 3A: Everyday Life -> Medical blood test jargon for grandma
+        await sendTurn('Translate this medical blood test jargon into simple words my grandmother can understand.', {
+          preset_domain: 'daily_practical_life',
+          preset_pref: 'TONE:WARM_PLAIN_LANGUAGE',
+          preset_dimension: 'Tone',
+          preset_human_readable: 'You prefer medical and legal terms translated into comforting, simple words your grandmother can understand.',
+          force_override: null
+        });
+      } else if (presetKey === '3B') {
+        // Preset 3B: Everyday Life -> Emergency doctor contact (Direct numbers, zero embellishment)
+        await sendTurn('Emergency doctor contact numbers?', {
+          preset_domain: 'daily_practical_life',
+          force_override: null
+        });
+      } else if (presetKey === '4') {
+        // Preset 4: Researcher -> Critique transformer self-attention
+        await sendTurn('Critique the methodology of transformer self-attention.', {
+          preset_domain: 'academic_research',
+          preset_pref: 'DEPTH:EXHAUSTIVE_ACADEMIC',
+          preset_dimension: 'Depth',
+          preset_human_readable: 'You require academic critique with deep methodology, formal notation, and computational trade-off analysis.',
+          force_override: null
         });
       }
     }
 
-    // Reset Session
+    // Reset Conversation & Memory
     async function resetSession() {
       try {
-        await fetch('/api/reset', {
+        const res = await fetch('/api/reset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: SESSION_ID })
         });
+        const data = await res.json();
 
         const container = document.getElementById('messages-container');
         container.innerHTML = `
           <div class="flex items-start space-x-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-teal-500 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-400 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950">
               &alpha;
             </div>
-            <div class="flex-1 bg-slate-800/70 border border-slate-700/50 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 leading-relaxed shadow-sm">
+            <div class="flex-1 bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 leading-relaxed shadow-sm">
               <span class="font-semibold text-cyan-400 text-xs block mb-1">Session Reset</span>
-              Memory cleared. Default session restored with candidate preference <code class="text-cyan-300">DEPTH:CONCISE</code> in <code class="text-indigo-300">algorithms_learning</code>.
+              Conversation history cleared. Memory reset to default baseline state.
             </div>
           </div>
         `;
@@ -631,23 +765,24 @@
         document.getElementById('status-badge-container').className = 'p-3.5 rounded-xl border transition-all duration-300 bg-slate-950/60 border-slate-800 flex items-center space-x-3';
         document.getElementById('status-title').textContent = 'STANDBY';
         document.getElementById('status-title').className = 'text-sm font-bold text-slate-300';
-        document.getElementById('status-subtitle').textContent = 'Send a turn to view real-time gate evaluation.';
+        document.getElementById('status-subtitle').textContent = 'Send a query to observe real-time preference gating.';
         document.getElementById('prob-value').textContent = '--';
         document.getElementById('prob-bar-fill').style.width = '0%';
-        document.getElementById('override-container').classList.add('hidden');
+        document.getElementById('telemetry-reason').textContent = 'Awaiting query interaction.';
         document.getElementById('telemetry-latency').textContent = '-- ms';
+
+        renderVoiceList(data.preferences);
       } catch (err) {
         console.error('Reset error:', err);
       }
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // Initialize on load
     window.addEventListener('DOMContentLoaded', () => {
-      loadStatus();
+      fetchVoicePreferences();
     });
   </script>
 </body>

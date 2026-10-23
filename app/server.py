@@ -1,11 +1,14 @@
 """
-ATTUNE Interactive Demonstration Server
-=======================================
+ATTUNE Universal Demonstration Server
+=====================================
 FastAPI server serving:
-- POST /api/chat: Real-time preference gating inference and dialogue generation.
+- POST /api/chat: Real-time preference gating inference across universal personas.
 - GET  /api/status: Calibrated threshold, temperature, and scorecard telemetry.
 - POST /api/reset: Clears session preferences and overrides.
-- Static Web UI: Single-page dark mode dashboard with Policy Inspector drawer.
+- GET  /api/memory: Returns active 'My Voice' user preferences.
+- POST /api/memory/delete: Forgets a specific learned preference.
+- POST /api/memory/update: Edits a learned preference description.
+- Static Web UI: Modern Universal Studio dashboard with Policy Inspector & My Voice panel.
 """
 
 import json
@@ -19,14 +22,14 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 
-from app.engine import AttuneRuntimeEngine
+from app.engine import AttuneUniversalEngine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("attune_server")
@@ -38,9 +41,9 @@ SCORECARD_PATH = ROOT_DIR / "eval" / "final_scorecard.json"
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="ATTUNE Interactive Gating Engine",
-    description="Context-Aware Preference Gating Engine for Technical CS Explanations",
-    version="1.0.0",
+    title="ATTUNE Universal Adaptive Assistant",
+    description="Context-Aware Preference Gating Engine for Students, Citizens, News Readers, and Researchers",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -51,8 +54,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Runtime Engine singleton
-engine = AttuneRuntimeEngine()
+# Initialize Universal Runtime Engine singleton
+engine = AttuneUniversalEngine()
 
 
 # -----------------------------------------------------------------------------
@@ -62,14 +65,26 @@ engine = AttuneRuntimeEngine()
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = "default_session"
-    force_candidate_pref: Optional[str] = None
-    force_scope: Optional[str] = None
-    force_evidence: Optional[List[str]] = None
+    preset_domain: Optional[str] = None
+    preset_pref: Optional[str] = None
+    preset_dimension: Optional[str] = None
+    preset_human_readable: Optional[str] = None
     force_override: Optional[str] = None
 
 
 class ResetRequest(BaseModel):
     session_id: Optional[str] = "default_session"
+
+
+class DeleteMemoryRequest(BaseModel):
+    session_id: str
+    pref_id: str
+
+
+class UpdateMemoryRequest(BaseModel):
+    session_id: str
+    pref_id: str
+    new_text: str
 
 
 # -----------------------------------------------------------------------------
@@ -78,7 +93,7 @@ class ResetRequest(BaseModel):
 
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
-    """Processes an incoming user turn through the 2-Tier ATTUNE Gating Engine."""
+    """Processes an incoming user turn through the ATTUNE Universal Engine."""
     if not req.message or not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
@@ -86,9 +101,10 @@ def chat_endpoint(req: ChatRequest):
         result = engine.process_turn(
             session_id=req.session_id or "default_session",
             message=req.message.strip(),
-            force_candidate_pref=req.force_candidate_pref,
-            force_scope=req.force_scope,
-            force_evidence=req.force_evidence,
+            preset_domain=req.preset_domain,
+            preset_pref=req.preset_pref,
+            preset_dimension=req.preset_dimension,
+            preset_human_readable=req.preset_human_readable,
             force_override=req.force_override,
         )
         return result
@@ -99,9 +115,9 @@ def chat_endpoint(req: ChatRequest):
 
 @app.get("/api/status")
 def status_endpoint():
-    """Returns model configuration, calibration metrics, and graduation scorecard."""
+    """Returns model configuration, calibration metrics, and scorecard."""
     status_data = {
-        "model_architecture": "AttuneGatingModel",
+        "model_architecture": "AttuneUniversalEngine (all-MiniLM-L6-v2 + 2-Tier Gate)",
         "backbone_model": "sentence-transformers/all-MiniLM-L6-v2",
         "temperature": 0.8453,
         "tau_star": 0.9000,
@@ -111,6 +127,13 @@ def status_endpoint():
         "repeated_correction_rate": 0.000,
         "mean_latency_ms": 24.73,
         "status": "online",
+        "universal_domains": [
+            "education_learning",
+            "news_current_events",
+            "academic_research",
+            "daily_practical_life",
+            "technical_coding",
+        ]
     }
 
     if CONFIG_PATH.exists():
@@ -119,7 +142,6 @@ def status_endpoint():
                 cfg = json.load(f)
                 status_data["temperature"] = cfg.get("temperature", status_data["temperature"])
                 status_data["tau_star"] = cfg.get("tau_star", status_data["tau_star"])
-                status_data["backbone_model"] = cfg.get("backbone_model", status_data["backbone_model"])
         except Exception as e:
             logger.warning(f"Could not read config.json: {e}")
 
@@ -132,12 +154,46 @@ def status_endpoint():
                         status_data["test_accuracy"] = sys_info.get("accuracy", 0.985)
                         status_data["negative_transfer_rate"] = sys_info.get("ntr", 0.0)
                         status_data["false_suppression_rate"] = sys_info.get("fsr", 0.0375)
-                        status_data["repeated_correction_rate"] = sys_info.get("rcr", 0.0)
                         status_data["mean_latency_ms"] = sys_info.get("latency_ms_per_query", 24.73)
         except Exception as e:
             logger.warning(f"Could not read final_scorecard.json: {e}")
 
     return status_data
+
+
+@app.get("/api/memory")
+def get_memory_endpoint(session_id: str = "default_session"):
+    """Returns the list of active learned preferences for 'My Voice'."""
+    return {
+        "session_id": session_id,
+        "preferences": engine.memory.list_voice_preferences(session_id)
+    }
+
+
+@app.post("/api/memory/delete")
+def delete_memory_endpoint(req: DeleteMemoryRequest):
+    """Deletes or forgets a specific preference to give users complete control."""
+    success = engine.memory.delete_preference(req.session_id, req.pref_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Preference ID not found.")
+    return {
+        "status": "success",
+        "message": "Preference removed from My Voice memory.",
+        "preferences": engine.memory.list_voice_preferences(req.session_id)
+    }
+
+
+@app.post("/api/memory/update")
+def update_memory_endpoint(req: UpdateMemoryRequest):
+    """Updates a learned preference description in 'My Voice'."""
+    success = engine.memory.update_preference(req.session_id, req.pref_id, req.new_text)
+    if not success:
+        raise HTTPException(status_code=404, detail="Preference ID not found.")
+    return {
+        "status": "success",
+        "message": "Preference updated successfully.",
+        "preferences": engine.memory.list_voice_preferences(req.session_id)
+    }
 
 
 @app.post("/api/reset")
@@ -149,6 +205,7 @@ def reset_endpoint(req: ResetRequest):
         "status": "success",
         "message": f"Session '{session_id}' state reset successfully.",
         "session_id": session_id,
+        "preferences": engine.memory.list_voice_preferences(session_id)
     }
 
 
@@ -163,7 +220,7 @@ if STATIC_DIR.exists():
 def main():
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "127.0.0.1")
-    logger.info(f"Starting ATTUNE Server on http://{host}:{port}")
+    logger.info(f"Starting ATTUNE Universal Server on http://{host}:{port}")
     uvicorn.run("app.server:app", host=host, port=port, reload=False)
 
 
