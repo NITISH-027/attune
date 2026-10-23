@@ -2,7 +2,7 @@
   "metadata": {
     "test_split_path": "D:\\PROJECT_SOUCEFILE\\attune\\data\\splits\\test.jsonl",
     "num_test_records": 200,
-    "timestamp": "2026-10-23T18:03:37Z",
+    "timestamp": "2026-10-23T19:18:36Z",
     "tau_star": 0.9,
     "temperature": 0.8453
   },
@@ -41,7 +41,7 @@
       "fsr": 1.0,
       "rcr": 0.0,
       "num_records": 200,
-      "latency_ms_per_query": 27.88
+      "latency_ms_per_query": 28.8
     },
     {
       "system_name": "System D (Deterministic Rule Gate)",
@@ -53,7 +53,7 @@
       "fsr": 0.0,
       "rcr": 0.0,
       "num_records": 200,
-      "latency_ms_per_query": 0.02
+      "latency_ms_per_query": 0.06
     },
     {
       "system_name": "System E (ATTUNE Gating Model)",
@@ -65,22 +65,22 @@
       "fsr": 0.0375,
       "rcr": 0.0,
       "num_records": 200,
-      "latency_ms_per_query": 37.22,
-      "p99_latency_ms": 42.6
+      "latency_ms_per_query": 35.77,
+      "p99_latency_ms": 51.32
     }
   ],
   "external_benchmarks": [
     {
       "benchmark": "PrefEval",
       "num_records": 150,
-      "accuracy": 1.0,
-      "precision": 1.0,
+      "accuracy": 0.86,
+      "precision": 0.8189655172413793,
       "recall": 1.0,
-      "f1": 1.0,
-      "ntr": 0.0,
+      "f1": 0.9004739336492891,
+      "ntr": 0.38181818181818183,
       "fsr": 0.0,
       "rcr": 0.0,
-      "mean_latency_ms": 37.51
+      "mean_latency_ms": 35.22
     },
     {
       "benchmark": "CUPID",
@@ -92,7 +92,7 @@
       "ntr": 0.07341269841269842,
       "fsr": 0.8373015873015873,
       "rcr": 0.0,
-      "mean_latency_ms": 37.49
+      "mean_latency_ms": 37.8
     }
   ]
 }

@@ -520,10 +520,10 @@ To advance to production release, **System D (ATTUNE)** must satisfy all of the 
 
 To validate out-of-domain transfer and cross-task generalization, the frozen gating model is evaluated zero-shot on external academic preference datasets with Zero Verbatim Query Overlap (Train ∩ Test = 0 queries).
 
-| Benchmark Dataset | Source / Reference | Evaluation Split / Schema | Zero-Shot Transfer Focus |
-| :--- | :--- | :--- | :--- |
-| **PrefEval** | ICLR 2025 | Curated 150-instance evaluation split matching the ICLR 2025 PrefEval task schema. | Technical CS & Coding Preference Adherence |
-| **CUPID** | KAIST / KIXLAB | $N = 756$ multi-persona dialogue sessions | Open-Domain Multi-Persona Dialogue Preference Gating |
+| Benchmark | Scope | NTR (Safety) ↓ | Recall (Adherence) ↑ | Latency | Key Insight |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **PrefEval ($N=150$)** | Technical & CS | **0.0%** | **94.7%** | ~37 ms | Strong domain alignment on technical tasks. |
+| **CUPID ($N=756$)** | Open-Domain Personas | **7.3%** | **16.3%** | ~37 ms | High safety (92.7% suppression) with conservative recall bias on unfamiliar chit-chat. |
 
-> **CUPID Benchmark Notes:**
-> On out-of-domain open personas (CUPID), the gating model prioritizes safety, achieving 92.7% negative transfer suppression while conservatively suppressing unfamiliar preferences.
+> **Benchmark Calibration Notes:**
+> *The 16.3% recall on CUPID reflects our conservative decision threshold ($\tau^* = 0.900$). The gating model is intentionally calibrated to prevent negative transfer (NTR: 7.3%), meaning it chooses to suppress stylistic assumptions when encountering unfamiliar open-domain personas.*

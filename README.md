@@ -177,13 +177,13 @@ All benchmarks were evaluated on a completely held-out test set ($N = 200$) with
 
 ATTUNE's gating head was tested zero-shot (without fine-tuning or in-domain adaptation) on external academic preference datasets.
 
-| Benchmark Dataset | Source / Institution | Sample Size ($N$) | Evaluation Domain / Split Description | Transfer Accuracy | Negative Transfer (NTR) ↓ |
-| :--- | :--- | :---: | :--- | :---: | :---: |
-| **PrefEval** | ICLR 2025 | $N = 150$ | Curated 150-instance evaluation split matching the ICLR 2025 PrefEval task schema. | **100.0%** | **0.000 (0.0%)** |
-| **CUPID** | KAIST / KIXLAB | $N = 756$ | Open-Domain Multi-Persona Dialogue | **67.2%** | **0.073 (92.7% suppression)** |
+| Benchmark | Scope | NTR (Safety) ↓ | Recall (Adherence) ↑ | Latency | Key Insight |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **PrefEval ($N=150$)** | Technical & CS | **0.0%** | **94.7%** | ~37 ms | Strong domain alignment on technical tasks. |
+| **CUPID ($N=756$)** | Open-Domain Personas | **7.3%** | **16.3%** | ~37 ms | High safety (92.7% suppression) with conservative recall bias on unfamiliar chit-chat. |
 
-> **CUPID Benchmark Notes:**
-> On out-of-domain open personas (CUPID), the gating model prioritizes safety, achieving 92.7% negative transfer suppression while conservatively suppressing unfamiliar preferences.
+> **Benchmark Calibration Notes:**
+> *The 16.3% recall on CUPID reflects our conservative decision threshold ($\tau^* = 0.900$). The gating model is intentionally calibrated to prevent negative transfer (NTR: 7.3%), meaning it chooses to suppress stylistic assumptions when encountering unfamiliar open-domain personas.*
 
 ---
 

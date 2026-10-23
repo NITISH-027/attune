@@ -594,39 +594,53 @@ class AttuneUniversalEngine:
                 active_pref = session.get_active_preference(detected_domain)
 
         # 4. Gating Evaluation via Real PyTorch Model
-        pref_domain = active_pref.domain if active_pref else detected_domain
-        pref_token = active_pref.preference_token if active_pref else "NONE"
-        if active_pref and active_pref.preference_token == "DEPTH:DETAILED":
-            pref_evidence = ["User turn: Please provide comprehensive explanations covering edge cases, mathematical models, and underlying mechanisms."]
-        elif active_pref and active_pref.preference_token == "DEPTH:CONCISE":
-            pref_evidence = ["User turn: Please keep answers concise and skip boilerplate."]
-        elif active_pref and active_pref.evidence:
-            pref_evidence = [active_pref.evidence]
+        has_pref = active_pref is not None and bool(active_pref.preference_token) and str(active_pref.preference_token).strip().upper() not in ["NONE", ""]
+        if not has_pref:
+            # If candidate_preference is None, empty, or "NONE":
+            # Do NOT mark applied = True.
+            # Set applied = False, candidate_preference = None, reason = "No Active Preference in Memory".
+            # Telemetry badge must return Neutral Baseline (never Style Injected (NONE)).
+            proba = 0.0
+            applied = False
+            tier = "Tier 1 Priority Rule"
+            reason = "No Active Preference in Memory"
+            candidate_pref_token = None
+            active_pref = None
         else:
-            pref_evidence = []
+            pref_domain = active_pref.domain if active_pref.domain else detected_domain
+            pref_token = active_pref.preference_token
+            candidate_pref_token = pref_token
+            if pref_token == "DEPTH:DETAILED":
+                pref_evidence = ["User turn: Please provide comprehensive explanations covering edge cases, mathematical models, and underlying mechanisms."]
+            elif pref_token == "DEPTH:CONCISE":
+                pref_evidence = ["User turn: Please keep answers concise and skip boilerplate."]
+            elif active_pref.evidence:
+                pref_evidence = [active_pref.evidence]
+            else:
+                pref_evidence = []
 
-        # Contextualize short follow-up requests with the active conversational topic
-        eval_query = message
-        if session.history and len(message.split()) <= 12:
-            last_q = session.history[-1].get("query", "").strip()
-            clean_last_q = re.sub(r"^(explain|what is|tell me about|how does)\s+", "", last_q, flags=re.I).rstrip(".?")
-            if (active_pref and active_pref.preference_token == "DEPTH:DETAILED"):
-                eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
-            elif any(w in message.lower() for w in ["detail", "more", "example", "further", "expand", "deep"]):
-                eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
+            # Contextualize short follow-up requests with the active conversational topic
+            eval_query = message
+            if session.history and len(message.split()) <= 12:
+                last_q = session.history[-1].get("query", "").strip()
+                clean_last_q = re.sub(r"^(explain|what is|tell me about|how does)\s+", "", last_q, flags=re.I).rstrip(".?")
+                if pref_token == "DEPTH:DETAILED":
+                    eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
+                elif any(w in message.lower() for w in ["detail", "more", "example", "further", "expand", "deep"]):
+                    eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
 
-        gate_result = self.gating_model.predict(
-            current_query=eval_query,
-            candidate_preference=pref_token,
-            preference_scope=pref_domain,
-            supporting_evidence=pref_evidence,
-            recent_override=session.recent_override,
-        )
+            gate_result = self.gating_model.predict(
+                current_query=eval_query,
+                candidate_preference=pref_token,
+                preference_scope=pref_domain,
+                supporting_evidence=pref_evidence,
+                recent_override=session.recent_override,
+            )
 
-        proba = gate_result["probability"]
-        applied = gate_result["applied"]
-        tier = gate_result["tier"]
-        reason = gate_result["reason"]
+            proba = gate_result["probability"]
+            applied = gate_result["applied"]
+            tier = gate_result["tier"]
+            reason = gate_result["reason"]
 
         # 5. Generate Real Live LLM Response via Gemini with Multi-Turn History
         response_text = self.generator.generate(
@@ -656,7 +670,7 @@ class AttuneUniversalEngine:
             "domain_title": domain_title,
             "domain_icon": domain_icon,
             "persona": UNIVERSAL_DOMAINS.get(detected_domain, {}).get("default_persona", "Assistant"),
-            "candidate_preference": active_pref.preference_token if active_pref else "NONE",
+            "candidate_preference": candidate_pref_token,
             "preference_description": active_pref.human_readable if active_pref else "None learned yet.",
             "probability": proba,
             "threshold": 0.9000,

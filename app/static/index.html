@@ -464,10 +464,11 @@
           </div>
         `;
       } else {
-        const isApplied = telemetry && telemetry.applied;
+        const hasValidPref = telemetry && telemetry.candidate_preference && String(telemetry.candidate_preference).trim().toUpperCase() !== 'NONE';
+        const isApplied = Boolean(telemetry && telemetry.applied && hasValidPref);
         const styleTag = isApplied
-          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono font-medium">Style Injected (${telemetry.candidate_preference})</span>`
-          : `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px] font-mono font-medium">Neutral Baseline (Suppressed)</span>`;
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono font-medium">Style Injected (${escapeHtml(telemetry.candidate_preference)})</span>`
+          : `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px] font-mono font-medium">Neutral Baseline</span>`;
 
         const parsedContent = marked.parse(content);
         div.innerHTML = `
@@ -517,6 +518,9 @@
       const subtitle = document.getElementById('status-subtitle');
       const icon = document.getElementById('status-icon');
 
+      const hasValidPref = telemetry && telemetry.candidate_preference && String(telemetry.candidate_preference).trim().toUpperCase() !== 'NONE';
+      const applied = Boolean(telemetry && telemetry.applied && hasValidPref);
+
       if (override) {
         container.className = 'p-3.5 rounded-xl border transition-all duration-300 bg-rose-950/40 border-rose-800 text-rose-200';
         title.className = 'text-sm font-bold text-rose-300';
@@ -533,6 +537,14 @@
         barFill.className = 'h-full rounded-full transition-all duration-500 bg-emerald-400';
         icon.className = 'w-8 h-8 rounded-lg bg-emerald-900/60 text-emerald-300 flex items-center justify-center flex-shrink-0';
         icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
+      } else if (!hasValidPref) {
+        container.className = 'p-3.5 rounded-xl border transition-all duration-300 bg-slate-900/60 border-slate-700 text-slate-300';
+        title.className = 'text-sm font-bold text-slate-300';
+        title.textContent = 'NEUTRAL BASELINE';
+        subtitle.textContent = reason || 'No Active Preference in Memory';
+        barFill.className = 'h-full rounded-full transition-all duration-500 bg-slate-600';
+        icon.className = 'w-8 h-8 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center flex-shrink-0';
+        icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
       } else {
         container.className = 'p-3.5 rounded-xl border transition-all duration-300 bg-amber-950/40 border-amber-800 text-amber-200';
         title.className = 'text-sm font-bold text-amber-300';
