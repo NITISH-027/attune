@@ -117,6 +117,7 @@ class SessionState:
     preferences: List[LearnedPreference] = field(default_factory=list)
     recent_override: Optional[str] = None
     history: List[Dict[str, Any]] = field(default_factory=list)
+    conversation_turns: List[Dict[str, Any]] = field(default_factory=list)
 
     def reset(self):
         self.preferences = [
@@ -131,6 +132,7 @@ class SessionState:
         ]
         self.recent_override = None
         self.history = []
+        self.conversation_turns = []
 
     def get_active_preference(self, domain: str) -> Optional[LearnedPreference]:
         """Returns the active learned preference matching the domain, or None."""
@@ -226,8 +228,8 @@ class UniversalSignalExtractor:
     def __init__(self):
         pass
 
-    def detect_domain(self, text: str) -> Tuple[str, str, str]:
-        """Returns (domain_key, domain_title, icon)."""
+    def detect_domain(self, text: str, fallback_domain: Optional[str] = None) -> Tuple[str, str, str]:
+        """Returns (domain_key, domain_title, icon). Reuses fallback_domain for follow-up turns."""
         text_lower = text.lower()
         scores = {d: 0 for d in UNIVERSAL_DOMAINS}
         for d_key, d_info in UNIVERSAL_DOMAINS.items():
@@ -241,6 +243,12 @@ class UniversalSignalExtractor:
                 best_domain,
                 UNIVERSAL_DOMAINS[best_domain]["title"],
                 UNIVERSAL_DOMAINS[best_domain]["icon"]
+            )
+        if fallback_domain and fallback_domain in UNIVERSAL_DOMAINS:
+            return (
+                fallback_domain,
+                UNIVERSAL_DOMAINS[fallback_domain]["title"],
+                UNIVERSAL_DOMAINS[fallback_domain]["icon"]
             )
         return ("daily_practical_life", "Daily Practical Life", "🏠")
 
@@ -269,7 +277,25 @@ class UniversalSignalExtractor:
         """
         text_lower = text.lower()
 
-        # 1. Analogies / Metaphors request: "explain using X analogies", "use X metaphors", "explain with X"
+        # 1. Depth preference: explicit detailed vs. concise requests
+        # "more detailed", "in detail", "complex", "in-depth", "deep dive", "exhaustive", "comprehensive"
+        if re.search(r"\b(more detail(ed)?|in detail|complex|in-depth|deep[- ]dive|exhaustive|comprehensive|advanced|full depth)\b", text_lower):
+            return (
+                "You prefer comprehensive, advanced, in-depth breakdowns covering mechanisms, mathematical formulas, and technical depth.",
+                domain,
+                "Depth",
+                "DEPTH:DETAILED"
+            )
+
+        if re.search(r"\b(keep it concise|be concise|make it brief|brief|concise|short|short summary|summary|tldr|quick snippet)\b", text_lower):
+            return (
+                "You prefer concise, to-the-point answers without boilerplate commentary.",
+                domain,
+                "Depth",
+                "DEPTH:CONCISE"
+            )
+
+        # 2. Analogies / Metaphors request: "explain using X analogies", "use X metaphors", "explain with X"
         m = re.search(r"\b(?:explain|describe|illustrate)\b.*?\b(?:using|with)\s+([a-zA-Z0-9\s,]+?)(?:\s+analogies|\s+metaphors|\.|\?|$)", text_lower)
         if m:
             topic = m.group(1).strip()
@@ -291,23 +317,6 @@ class UniversalSignalExtractor:
                 domain,
                 "Tone",
                 "TONE:ANALOGIES"
-            )
-
-        # 2. Depth preference: concise vs. detailed
-        if re.search(r"\b(keep it concise|be concise|make it brief|short summary|tldr|quick snippet)\b", text_lower):
-            return (
-                "You prefer concise, to-the-point answers without boilerplate commentary.",
-                domain,
-                "Depth",
-                "DEPTH:CONCISE"
-            )
-
-        if re.search(r"\b(detailed|exhaustive|deep[- ]dive|in[- ]depth|comprehensive)\b", text_lower):
-            return (
-                "You prefer exhaustive in-depth breakdowns covering mechanisms and edge cases.",
-                domain,
-                "Depth",
-                "DEPTH:DETAILED"
             )
 
         # 3. Structure preference: bullets
@@ -391,12 +400,14 @@ class UniversalResponseGenerator:
         domain: str,
         applied: bool,
         pref: Optional[LearnedPreference],
-        reason: str
+        reason: str,
+        conversation_history: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """
-        Executes live text generation with Gemini API:
+        Executes live multi-turn text generation with Gemini API:
         - If APPLIED: Injects the active candidate preference directive into system prompt.
         - If SUPPRESSED: Instructs Gemini to answer directly, factually, and concisely without metaphors.
+        - Passes conversation_history (last 6 turns) so follow-ups retain full ongoing context.
         """
         if not self.client:
             err_msg = (
@@ -408,12 +419,28 @@ class UniversalResponseGenerator:
 
         # Construct conditioned system instructions
         if applied and pref:
-            system_instruction = (
-                "You are ATTUNE, a context-aware and highly adaptive AI assistant.\n"
-                f"ACTIVE USER PREFERENCE (APPROVED): {pref.human_readable}\n"
-                "Please adopt this requested style, tone, and structure thoroughly in your response. "
-                "Explain the concepts vividly according to this approved preference."
-            )
+            if pref.preference_token == "DEPTH:DETAILED":
+                system_instruction = (
+                    "You are ATTUNE, a context-aware and highly adaptive AI assistant.\n"
+                    f"ACTIVE USER PREFERENCE (APPROVED): {pref.human_readable}\n"
+                    "The user has requested maximum depth and detail for this topic. "
+                    "Provide an advanced, comprehensive, and exhaustive breakdown. "
+                    "Include underlying mechanisms, mathematical models/formulas (e.g. quantity theory of money MV=PY, Fisher equation, Phillips curve where applicable), "
+                    "macroeconomic principles, and granular edge-case analysis. Do not give a superficial summary."
+                )
+            elif pref.preference_token == "DEPTH:CONCISE":
+                system_instruction = (
+                    "You are ATTUNE, a context-aware and highly adaptive AI assistant.\n"
+                    f"ACTIVE USER PREFERENCE (APPROVED): {pref.human_readable}\n"
+                    "Provide a very concise, direct summary in 2-3 lines. Skip boilerplate commentary."
+                )
+            else:
+                system_instruction = (
+                    "You are ATTUNE, a context-aware and highly adaptive AI assistant.\n"
+                    f"ACTIVE USER PREFERENCE (APPROVED): {pref.human_readable}\n"
+                    "Please adopt this requested style, tone, and structure thoroughly in your response. "
+                    "Explain the concepts vividly according to this approved preference."
+                )
         else:
             system_instruction = (
                 "You are ATTUNE, an objective, concise, and factual AI assistant.\n"
@@ -424,13 +451,37 @@ class UniversalResponseGenerator:
                 "Provide the direct, accurate answer immediately."
             )
 
-        full_prompt = f"{system_instruction}\n\nUser Inquiry: {query}"
+        # Build multi-turn contents for Gemini
+        contents = []
+        if conversation_history:
+            for turn in conversation_history[-6:]:
+                role = turn.get("role", "user")
+                parts = turn.get("parts", [])
+                text_parts = []
+                for p in parts:
+                    if isinstance(p, dict) and "text" in p:
+                        text_parts.append(p)
+                    elif isinstance(p, str):
+                        text_parts.append({"text": p})
+                    else:
+                        text_parts.append({"text": str(p)})
+                if text_parts:
+                    contents.append({"role": role, "parts": text_parts})
+
+        # Append current user inquiry
+        contents.append({"role": "user", "parts": [{"text": query}]})
 
         try:
             t_call_start = time.perf_counter()
+            from google.genai import types
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.7,
+            )
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=full_prompt,
+                contents=contents,
+                config=config,
             )
             elapsed_ms = (time.perf_counter() - t_call_start) * 1000.0
 
@@ -443,6 +494,16 @@ class UniversalResponseGenerator:
 
         except Exception as exc:
             logger.error(f"Gemini generation call failed: {exc}", exc_info=True)
+            try:
+                full_prompt = f"{system_instruction}\n\nUser Inquiry: {query}"
+                fallback_resp = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=full_prompt,
+                )
+                if fallback_resp and fallback_resp.text:
+                    return fallback_resp.text.strip()
+            except Exception:
+                pass
             return f"**[Gemini Generation Error]**: {str(exc)}"
 
 
@@ -484,8 +545,9 @@ class AttuneUniversalEngine:
         t0 = time.perf_counter()
         session = self.memory.get_session(session_id)
 
-        # 1. Detect Domain & Persona
-        detected_domain, domain_title, domain_icon = self.extractor.detect_domain(message)
+        # 1. Detect Domain & Persona (inherit previous domain for short follow-ups)
+        last_domain = session.history[-1].get("domain") if session.history else None
+        detected_domain, domain_title, domain_icon = self.extractor.detect_domain(message, fallback_domain=last_domain)
         if preset_domain:
             detected_domain = preset_domain
             domain_title = UNIVERSAL_DOMAINS.get(preset_domain, {}).get("title", domain_title)
@@ -512,13 +574,20 @@ class AttuneUniversalEngine:
             extracted = self.extractor.extract_freeform_preference(message, detected_domain)
             if extracted and not session.recent_override:
                 h_text, d_scope, d_dim, p_token = extracted
+                if p_token == "DEPTH:DETAILED":
+                    evidence_str = "User turn: Please provide comprehensive explanations covering edge cases, mathematical models, and underlying mechanisms."
+                elif p_token == "DEPTH:CONCISE":
+                    evidence_str = "User turn: Please keep answers concise and skip boilerplate."
+                else:
+                    evidence_str = f"User turn: '{message.strip()}'"
+
                 active_pref = self.memory.add_preference(
                     session_id=session_id,
                     human_readable=h_text,
                     domain=d_scope,
                     dimension=d_dim,
                     preference_token=p_token,
-                    evidence=f"User turn: '{message.strip()}'"
+                    evidence=evidence_str
                 )
                 logger.info(f"Registered free-form preference in memory: '{h_text}' ({p_token})")
             else:
@@ -527,10 +596,27 @@ class AttuneUniversalEngine:
         # 4. Gating Evaluation via Real PyTorch Model
         pref_domain = active_pref.domain if active_pref else detected_domain
         pref_token = active_pref.preference_token if active_pref else "NONE"
-        pref_evidence = [active_pref.evidence] if (active_pref and active_pref.evidence) else []
+        if active_pref and active_pref.preference_token == "DEPTH:DETAILED":
+            pref_evidence = ["User turn: Please provide comprehensive explanations covering edge cases, mathematical models, and underlying mechanisms."]
+        elif active_pref and active_pref.preference_token == "DEPTH:CONCISE":
+            pref_evidence = ["User turn: Please keep answers concise and skip boilerplate."]
+        elif active_pref and active_pref.evidence:
+            pref_evidence = [active_pref.evidence]
+        else:
+            pref_evidence = []
+
+        # Contextualize short follow-up requests with the active conversational topic
+        eval_query = message
+        if session.history and len(message.split()) <= 12:
+            last_q = session.history[-1].get("query", "").strip()
+            clean_last_q = re.sub(r"^(explain|what is|tell me about|how does)\s+", "", last_q, flags=re.I).rstrip(".?")
+            if (active_pref and active_pref.preference_token == "DEPTH:DETAILED"):
+                eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
+            elif any(w in message.lower() for w in ["detail", "more", "example", "further", "expand", "deep"]):
+                eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
 
         gate_result = self.gating_model.predict(
-            current_query=message,
+            current_query=eval_query,
             candidate_preference=pref_token,
             preference_scope=pref_domain,
             supporting_evidence=pref_evidence,
@@ -542,18 +628,19 @@ class AttuneUniversalEngine:
         tier = gate_result["tier"]
         reason = gate_result["reason"]
 
-        # 5. Generate Real Live LLM Response via Gemini
+        # 5. Generate Real Live LLM Response via Gemini with Multi-Turn History
         response_text = self.generator.generate(
             query=message,
             domain=detected_domain,
             applied=applied,
             pref=active_pref,
-            reason=reason
+            reason=reason,
+            conversation_history=session.conversation_turns[-6:]
         )
 
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
-        # Record History Turn
+        # Record History Turn and Running Gemini Conversation Turns
         session.history.append({
             "query": message,
             "response": response_text,
@@ -561,6 +648,8 @@ class AttuneUniversalEngine:
             "applied": applied,
             "probability": proba,
         })
+        session.conversation_turns.append({"role": "user", "parts": [message]})
+        session.conversation_turns.append({"role": "model", "parts": [response_text]})
 
         telemetry = {
             "domain": detected_domain,
