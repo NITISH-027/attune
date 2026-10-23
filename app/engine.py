@@ -357,57 +357,6 @@ class UniversalSignalExtractor:
 
         return None
 
-    def evaluate_applicability(
-        self,
-        query: str,
-        detected_domain: str,
-        pref_domain: str,
-        pref_token: str
-    ) -> Tuple[float, bool, str]:
-        """
-        Calculates calibrated applicability probability p_hat against tau* = 0.9000.
-        Checks both domain alignment and task-intent suitability.
-        """
-        q_lower = query.lower()
-
-        # 1. Pure factual lookup or general trivia where analogies / styles are inappropriate
-        if "capital of" in q_lower or "what is the capital" in q_lower:
-            return (0.0050, False, "Task Inappropriate: Pure geographic trivia lookup requires direct factual answer, suppressing personal stylistic preferences.")
-
-        # 2. Clear domain shift (e.g. news preference vs. movie recommendation)
-        if detected_domain != pref_domain:
-            return (0.0125, False, f"Domain Shift: Query belongs to '{detected_domain}', but active preference is for '{pref_domain}'.")
-
-        # 3. Sub-task intent discrimination within same domain:
-        # Case A: Student cooking analogy on pure factual formula lookup
-        if pref_domain == "education_learning" and ("formula" in q_lower or "chemical equation" in q_lower):
-            return (0.0240, False, "Task Inappropriate: Pure chemical formula lookup requires exact scientific notation, not metaphorical cooking analogies.")
-
-        # Case B: Daily life emergency doctor contact
-        if pref_domain == "daily_practical_life" and ("emergency" in q_lower or "doctor contact" in q_lower or "call 911" in q_lower):
-            return (0.0050, False, "Emergency Priority: Immediate emergency contacts must be direct and unembellished.")
-
-        # Case C: News reader asking for movie recommendations
-        if pref_domain == "news_current_events" and ("movie" in q_lower or "fun" in q_lower or "film" in q_lower):
-            return (0.0310, False, "Context Shift: Casual entertainment query does not warrant neutral geopolitical news policy analysis.")
-
-        # Positive in-domain alignments
-        if "photosynthesis" in q_lower or "science" in q_lower:
-            return (0.9785, True, "Contextually Applicable: Educational science concept matches active cooking analogy preference.")
-
-        if "inflation" in q_lower or "subsid" in q_lower or "electric vehicle" in q_lower or "policy" in q_lower:
-            return (0.9840, True, "Contextually Applicable: Economic/policy concept matches active explanation preference.")
-
-        if "blood test" in q_lower or "jargon" in q_lower or "medical" in q_lower:
-            return (0.9815, True, "Contextually Applicable: Complex medical report matches warm plain-language translation preference.")
-
-        if "transformer" in q_lower or "self-attention" in q_lower or "methodology" in q_lower:
-            return (0.9890, True, "Contextually Applicable: ML architecture inquiry matches deep academic methodology critique preference.")
-
-        if pref_token in ["DEPTH:CONCISE", "STRUCTURE:BULLETS", "TONE:ANALOGIES"]:
-            return (0.9650, True, "Contextually Applicable: Query matches active formatting preference.")
-
-        return (0.0350, False, "Ambiguous Relevance: Context evidence insufficient to clear calibrated threshold (tau* = 0.900).")
 
 
 # -----------------------------------------------------------------------------
@@ -511,18 +460,16 @@ class AttuneUniversalEngine:
         self.extractor = UniversalSignalExtractor()
         self.generator = UniversalResponseGenerator()
 
-        # Initialize underlying PyTorch gating model for telemetry verification
+        # Initialize underlying PyTorch gating model
         kwargs = {}
         if model_path:
             kwargs["model_path"] = model_path
         if config_path:
             kwargs["config_path"] = config_path
-        try:
-            self.gate = AttuneGateInference(**kwargs)
-            logger.info(f"Loaded AttuneGateInference [tau* = {self.gate.tau_star:.4f}]")
-        except Exception as e:
-            logger.warning(f"Could not load AttuneGateInference ({e}), using calibrated statistical fallback.")
-            self.gate = None
+
+        self.gating_model = AttuneGateInference(**kwargs)
+        self.gate = self.gating_model  # alias for backwards compatibility
+        logger.info(f"Loaded AttuneGateInference [tau* = {self.gating_model.tau_star:.4f}]")
 
     def process_turn(
         self,
@@ -577,22 +524,23 @@ class AttuneUniversalEngine:
             else:
                 active_pref = session.get_active_preference(detected_domain)
 
-        # 4. Gating Evaluation (Tier 1 vs. Tier 2)
-        if session.recent_override:
-            proba = 0.0000
-            applied = False
-            tier = "Tier 1 Golden Rule"
-            reason = f"Suppressed by Golden Rule: Explicit User Override detected ('{session.recent_override}')."
-        else:
-            pref_domain = active_pref.domain if active_pref else detected_domain
-            pref_token = active_pref.preference_token if active_pref else "TONE:SIMPLE_ANALOGIES"
-            proba, applied, reason = self.extractor.evaluate_applicability(
-                query=message,
-                detected_domain=detected_domain,
-                pref_domain=pref_domain,
-                pref_token=pref_token
-            )
-            tier = "Tier 2 Calibrated Model"
+        # 4. Gating Evaluation via Real PyTorch Model
+        pref_domain = active_pref.domain if active_pref else detected_domain
+        pref_token = active_pref.preference_token if active_pref else "NONE"
+        pref_evidence = [active_pref.evidence] if (active_pref and active_pref.evidence) else []
+
+        gate_result = self.gating_model.predict(
+            current_query=message,
+            candidate_preference=pref_token,
+            preference_scope=pref_domain,
+            supporting_evidence=pref_evidence,
+            recent_override=session.recent_override,
+        )
+
+        proba = gate_result["probability"]
+        applied = gate_result["applied"]
+        tier = gate_result["tier"]
+        reason = gate_result["reason"]
 
         # 5. Generate Real Live LLM Response via Gemini
         response_text = self.generator.generate(

@@ -91,24 +91,13 @@ class AttuneGateInference:
                 tier: str ("Tier 1 Pre-Filter" or "Tier 2 Gating Model")
                 reason: Optional explanation string
         """
-        # Tier 1: Golden Priority Rule (Query-level explicit reversal pre-filter)
-        if recent_override is not None and str(recent_override).strip():
-            return {
-                "decision": 0,
-                "probability": 0.0,
-                "threshold": self.tau_star,
-                "applied": False,
-                "tier": "Tier 1 Pre-Filter",
-                "reason": "Suppressed by Golden Rule: Explicit User Override detected.",
-            }
-
         # Normalize evidence input
         if supporting_evidence is None:
             supporting_evidence = []
         elif isinstance(supporting_evidence, str):
             supporting_evidence = [supporting_evidence]
 
-        # Tier 2: Model Execution
+        # Model Execution
         record = {
             "current_query": current_query,
             "candidate_preference": candidate_preference,
@@ -130,15 +119,26 @@ class AttuneGateInference:
         attention_mask = encoding["attention_mask"].to(self.device)
 
         with torch.no_grad():
-            proba = self.model.predict_proba(input_ids, attention_mask).item()
+            proba = float(self.model.predict_proba(input_ids, attention_mask).item())
 
-        decision = 1 if proba >= self.tau_star else 0
+        # Tier 1 Golden Rule: Explicit override suppresses the application decision
+        has_override = recent_override is not None and str(recent_override).strip()
+        if has_override:
+            decision = 0
+            applied = False
+            tier = "Tier 1 Golden Rule"
+            reason = f"Suppressed by Golden Rule: Explicit User Override detected ('{recent_override}')."
+        else:
+            decision = 1 if proba >= self.tau_star else 0
+            applied = (decision == 1)
+            tier = "Tier 2 Calibrated Model"
+            reason = "Contextually Applicable" if decision == 1 else "Context Shift / Insufficient Evidence"
 
         return {
             "decision": decision,
-            "probability": round(float(proba), 4),
+            "probability": proba,
             "threshold": self.tau_star,
-            "applied": (decision == 1),
-            "tier": "Tier 2 Gating Model",
-            "reason": "Contextually Applicable" if decision == 1 else "Context Shift / Insufficient Evidence",
+            "applied": applied,
+            "tier": tier,
+            "reason": reason,
         }
