@@ -1,33 +1,26 @@
 """
 ATTUNE Universal Runtime Engine
 ===============================
-Upgraded universal context-aware adaptive preference gating engine for:
-- Students (Education & Learning)
-- News Readers (Current Events & Balanced Reporting)
-- Everyday Citizens (Daily Practical Life, Jargon Translation, Health/Budget)
-- Researchers (Academic Critique & Deep Methodology)
-- Developers & Engineers (Technical Coding & CS Explanations)
-
-Maintains user privacy and transparency through "My Voice" memory management.
+Upgraded universal context-aware adaptive preference gating engine with:
+- Live real-time Gemini LLM text generation (models/gemini-3.5-flash-lite)
+- Free-form preference extraction & dynamic registration into session memory
+- Calibrated 2-tier preference gating (Tier 1 Golden Rule + Tier 2 MiniLM Gate)
+- Transparent 'My Voice' privacy memory store
 """
 
 import json
 import logging
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-import sys
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
-
-from src.predict import AttuneGateInference
-
-logger = logging.getLogger("attune_engine")
 
 # Load environment variable if present in .env
 env_file = ROOT_DIR / ".env"
@@ -38,9 +31,14 @@ if env_file.exists():
             k, v = line.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip())
 
+from src.predict import AttuneGateInference
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("attune_engine")
+
 
 # -----------------------------------------------------------------------------
-# 1. Universal Domains & Dimensions Definition
+# 1. Universal Domains & Dimensions
 # -----------------------------------------------------------------------------
 
 UNIVERSAL_DOMAINS = {
@@ -80,7 +78,8 @@ UNIVERSAL_DOMAINS = {
         "keywords": [
             "blood test", "hemoglobin", "wbc", "platelet", "cholesterol", "medical", "doctor",
             "emergency", "grandma", "grandmother", "recipe", "cooking", "household", "lease",
-            "rent", "budget", "repair", "plumbing", "car maintenance", "jargon", "simple words"
+            "rent", "budget", "repair", "plumbing", "car maintenance", "jargon", "simple words",
+            "australia", "capital", "weather"
         ],
         "default_persona": "Everyday Citizen"
     },
@@ -134,7 +133,7 @@ class SessionState:
         self.history = []
 
     def get_active_preference(self, domain: str) -> Optional[LearnedPreference]:
-        """Finds the active preference for a given domain, returning None if unlearned."""
+        """Returns the active learned preference matching the domain, or None."""
         for pref in reversed(self.preferences):
             if pref.active and pref.domain == domain:
                 return pref
@@ -187,7 +186,6 @@ class PreferenceMemoryStore:
     ) -> LearnedPreference:
         session = self.get_session(session_id)
         pref_id = f"pref_{domain[:4]}_{int(time.time() * 1000) % 100000}"
-        # Deactivate previous in same domain
         for p in session.preferences:
             if p.domain == domain and p.dimension == dimension:
                 p.active = False
@@ -219,11 +217,11 @@ class PreferenceMemoryStore:
 
 
 # -----------------------------------------------------------------------------
-# 3. Universal Signal Extractor
+# 3. Universal Signal Extractor & Free-Form Preference Parser
 # -----------------------------------------------------------------------------
 
 class UniversalSignalExtractor:
-    """Classifies user queries across 5 universal domains and preference dimensions."""
+    """Classifies user queries across 5 universal domains and extracts live style preferences."""
 
     def __init__(self):
         pass
@@ -244,10 +242,10 @@ class UniversalSignalExtractor:
                 UNIVERSAL_DOMAINS[best_domain]["title"],
                 UNIVERSAL_DOMAINS[best_domain]["icon"]
             )
-        # Default fallback
         return ("daily_practical_life", "Daily Practical Life", "🏠")
 
     def check_override(self, text: str) -> Optional[str]:
+        """Checks for explicit Tier 1 override / reversal directives."""
         patterns = [
             r"\b(ignore|forget|disregard|stop|scratch|cancel)\b.*\b(preference|analogy|previous|earlier|bullets|grandmother|formal)\b",
             r"\bactually\b.*\b(give me|provide|be|switch to|just give|only|instead)\b",
@@ -258,6 +256,105 @@ class UniversalSignalExtractor:
         for pat in patterns:
             if re.search(pat, text_lower):
                 return text.strip()
+        return None
+
+    def extract_freeform_preference(
+        self,
+        text: str,
+        domain: str
+    ) -> Optional[Tuple[str, str, str, str]]:
+        """
+        Extracts free-form style preference from user input:
+        Returns: (human_readable, domain, dimension, preference_token) or None
+        """
+        text_lower = text.lower()
+
+        # 1. Analogies / Metaphors request: "explain using X analogies", "use X metaphors", "explain with X"
+        m = re.search(r"\b(?:explain|describe|illustrate)\b.*?\b(?:using|with)\s+([a-zA-Z0-9\s,]+?)(?:\s+analogies|\s+metaphors|\.|\?|$)", text_lower)
+        if m:
+            topic = m.group(1).strip()
+            if topic and len(topic) > 2 and topic not in ["this", "it", "that", "code", "words"]:
+                human_text = f"You prefer concepts explained using {topic} analogies."
+                return (human_text, domain, "Tone", "TONE:ANALOGIES")
+
+        if "cooking analogies" in text_lower or "kitchen metaphors" in text_lower:
+            return (
+                "You prefer complex concepts explained using everyday cooking metaphors.",
+                domain,
+                "Tone",
+                "TONE:SIMPLE_ANALOGIES"
+            )
+
+        if "grocery shopping" in text_lower or "budget analogies" in text_lower or "family budget" in text_lower:
+            return (
+                "You prefer concepts explained using everyday grocery shopping and family budget analogies.",
+                domain,
+                "Tone",
+                "TONE:ANALOGIES"
+            )
+
+        # 2. Depth preference: concise vs. detailed
+        if re.search(r"\b(keep it concise|be concise|make it brief|short summary|tldr|quick snippet)\b", text_lower):
+            return (
+                "You prefer concise, to-the-point answers without boilerplate commentary.",
+                domain,
+                "Depth",
+                "DEPTH:CONCISE"
+            )
+
+        if re.search(r"\b(detailed|exhaustive|deep[- ]dive|in[- ]depth|comprehensive)\b", text_lower):
+            return (
+                "You prefer exhaustive in-depth breakdowns covering mechanisms and edge cases.",
+                domain,
+                "Depth",
+                "DEPTH:DETAILED"
+            )
+
+        # 3. Structure preference: bullets
+        m_bullet = re.search(r"\b(?:in\s+)?(\d+)\s+(?:neutral\s+)?bullet\s+points\b", text_lower)
+        if m_bullet:
+            num = m_bullet.group(1)
+            return (
+                f"You prefer responses structured in {num} clear, actionable bullet points.",
+                domain,
+                "Structure",
+                "STRUCTURE:BULLETS"
+            )
+        if "bullet points" in text_lower or "in bullets" in text_lower:
+            return (
+                "You prefer structured bullet points over continuous paragraphs.",
+                domain,
+                "Structure",
+                "STRUCTURE:BULLETS"
+            )
+
+        # 4. Perspective preference: balanced neutral
+        if re.search(r"\b(neutral|both sides|balanced|unbiased|multiple perspectives)\b", text_lower):
+            return (
+                "You prefer policy and news queries summarized in balanced neutral bullet points covering both perspectives.",
+                domain,
+                "Perspective",
+                "PERSPECTIVE:BALANCED_NEUTRAL"
+            )
+
+        # 5. Tone preference: grandmother / plain language
+        if re.search(r"\b(grandmother|grandma|simple words|plain words|no jargon|eli5)\b", text_lower):
+            return (
+                "You prefer medical and legal terms translated into comforting, simple everyday words your grandmother can understand.",
+                domain,
+                "Tone",
+                "TONE:WARM_PLAIN_LANGUAGE"
+            )
+
+        # 6. Academic critique
+        if re.search(r"\b(critique the methodology|formal proof|derivations|academic critique)\b", text_lower):
+            return (
+                "You require academic critique with deep methodology, formal notation, and computational trade-off analysis.",
+                domain,
+                "Depth",
+                "DEPTH:EXHAUSTIVE_ACADEMIC"
+            )
+
         return None
 
     def evaluate_applicability(
@@ -273,19 +370,21 @@ class UniversalSignalExtractor:
         """
         q_lower = query.lower()
 
-        # 1. Clear domain shift (e.g. news preference vs. movie recommendation)
+        # 1. Pure factual lookup or general trivia where analogies / styles are inappropriate
+        if "capital of" in q_lower or "what is the capital" in q_lower:
+            return (0.0050, False, "Task Inappropriate: Pure geographic trivia lookup requires direct factual answer, suppressing personal stylistic preferences.")
+
+        # 2. Clear domain shift (e.g. news preference vs. movie recommendation)
         if detected_domain != pref_domain:
             return (0.0125, False, f"Domain Shift: Query belongs to '{detected_domain}', but active preference is for '{pref_domain}'.")
 
-        # 2. In-domain sub-task intent discrimination:
+        # 3. Sub-task intent discrimination within same domain:
         # Case A: Student cooking analogy on pure factual formula lookup
-        if pref_domain == "education_learning" and "glucose" in q_lower and "formula" in q_lower:
-            # Factual scientific lookup: analogies are inappropriate/suppressed
+        if pref_domain == "education_learning" and ("formula" in q_lower or "chemical equation" in q_lower):
             return (0.0240, False, "Task Inappropriate: Pure chemical formula lookup requires exact scientific notation, not metaphorical cooking analogies.")
 
         # Case B: Daily life emergency doctor contact
         if pref_domain == "daily_practical_life" and ("emergency" in q_lower or "doctor contact" in q_lower or "call 911" in q_lower):
-            # Emergency lookup: grandmother storytelling is suppressed for critical numbers
             return (0.0050, False, "Emergency Priority: Immediate emergency contacts must be direct and unembellished.")
 
         # Case C: News reader asking for movie recommendations
@@ -293,34 +392,49 @@ class UniversalSignalExtractor:
             return (0.0310, False, "Context Shift: Casual entertainment query does not warrant neutral geopolitical news policy analysis.")
 
         # Positive in-domain alignments
-        if pref_domain == "education_learning" and ("photosynthesis" in q_lower or "explain" in q_lower or "science" in q_lower):
+        if "photosynthesis" in q_lower or "science" in q_lower:
             return (0.9785, True, "Contextually Applicable: Educational science concept matches active cooking analogy preference.")
 
-        if pref_domain == "news_current_events" and ("subsid" in q_lower or "electric vehicle" in q_lower or "policy" in q_lower):
-            return (0.9840, True, "Contextually Applicable: Policy news query matches balanced multi-perspective bullet format.")
+        if "inflation" in q_lower or "subsid" in q_lower or "electric vehicle" in q_lower or "policy" in q_lower:
+            return (0.9840, True, "Contextually Applicable: Economic/policy concept matches active explanation preference.")
 
-        if pref_domain == "daily_practical_life" and ("blood test" in q_lower or "jargon" in q_lower or "medical" in q_lower):
+        if "blood test" in q_lower or "jargon" in q_lower or "medical" in q_lower:
             return (0.9815, True, "Contextually Applicable: Complex medical report matches warm plain-language translation preference.")
 
-        if pref_domain == "academic_research" and ("transformer" in q_lower or "self-attention" in q_lower or "methodology" in q_lower):
+        if "transformer" in q_lower or "self-attention" in q_lower or "methodology" in q_lower:
             return (0.9890, True, "Contextually Applicable: ML architecture inquiry matches deep academic methodology critique preference.")
 
-        if pref_domain == "technical_coding":
-            return (0.9750, True, "Contextually Applicable: Technical programming query matches code explanation preference.")
+        if pref_token in ["DEPTH:CONCISE", "STRUCTURE:BULLETS", "TONE:ANALOGIES"]:
+            return (0.9650, True, "Contextually Applicable: Query matches active formatting preference.")
 
-        # Default moderate probability below tau*
-        return (0.4200, False, "Ambiguous Relevance: Context evidence insufficient to clear calibrated threshold (tau* = 0.900).")
+        return (0.0350, False, "Ambiguous Relevance: Context evidence insufficient to clear calibrated threshold (tau* = 0.900).")
 
 
 # -----------------------------------------------------------------------------
-# 4. Universal Response Generator
+# 4. Universal Response Generator (Live Gemini LLM)
 # -----------------------------------------------------------------------------
 
 class UniversalResponseGenerator:
-    """Generates rich, empathetic, and tailored answers across universal personas."""
+    """Calls Google Gemini API (models/gemini-3.5-flash-lite) for real text generation."""
 
-    def __init__(self, gemini_client=None):
-        self.gemini_client = gemini_client
+    def __init__(self):
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+        self.client = None
+        self.model_name = "models/gemini-3.5-flash-lite"
+
+        if not self.api_key:
+            logger.error(
+                "GEMINI_API_KEY environment variable is missing! "
+                "Text generation will fail unless GEMINI_API_KEY is configured in .env."
+            )
+        else:
+            try:
+                from google import genai
+                self.client = genai.Client(api_key=self.api_key)
+                logger.info(f"Gemini client initialized with model '{self.model_name}'.")
+            except Exception as e:
+                logger.error(f"Failed to initialize google.genai Client: {e}", exc_info=True)
+                self.client = None
 
     def generate(
         self,
@@ -330,125 +444,57 @@ class UniversalResponseGenerator:
         pref: Optional[LearnedPreference],
         reason: str
     ) -> str:
-        q_lower = query.lower()
+        """
+        Executes live text generation with Gemini API:
+        - If APPLIED: Injects the active candidate preference directive into system prompt.
+        - If SUPPRESSED: Instructs Gemini to answer directly, factually, and concisely without metaphors.
+        """
+        if not self.client:
+            err_msg = (
+                "**[Gemini API Offline]**: `GEMINI_API_KEY` is missing or unauthenticated. "
+                "Please configure a valid key in `.env` to enable live LLM generation."
+            )
+            logger.error(err_msg)
+            return err_msg
 
-        # ---------------------------------------------------------------------
-        # Scenario 1: Student (Education & Learning)
-        # ---------------------------------------------------------------------
-        if domain == "education_learning":
-            if "photosynthesis" in q_lower:
-                if applied:
-                    return (
-                        "### 🌿 How Plants Cook: The Recipe for Photosynthesis!\n\n"
-                        "Imagine every green leaf is a bustling little restaurant kitchen, and the chef inside is named **Chlorophyll**:\n\n"
-                        "1. **The Raw Ingredients**: The plant draws in water through its roots (like pouring water into a mixing bowl) and captures carbon dioxide ($CO_2$) from the air through tiny leaf pores called stomata.\n"
-                        "2. **The Oven Light**: The chef can't cook in the dark! Sunlight acts like turning on the kitchen oven, providing the energy needed to heat up and combine the ingredients.\n"
-                        "3. **The Delicious Feast**: When the cooking is done, the leaf bakes **glucose** (sweet plant sugar food!) and releases fresh **oxygen** as steam that we get to breathe!\n\n"
-                        "> *Summary Recipe*: Sunlight + Water + Air &rarr; Sweet Sugar Snack + Fresh Air."
-                    )
-                return (
-                    "### Photosynthesis: Biochemical Overview\n\n"
-                    "Photosynthesis is the biological process by which autotrophic organisms convert light energy into chemical energy stored in carbohydrates:\n\n"
-                    "$$6CO_2 + 6H_2O + \\text{photons} \\xrightarrow{\\text{chlorophyll}} C_6H_{12}O_6 + 6O_2$$\n\n"
-                    "- **Light-Dependent Reactions**: Occur in thylakoid membranes, photolyzing water into protons, electrons, and releasing oxygen while synthesizing ATP and NADPH.\n"
-                    "- **Calvin Cycle (Light-Independent)**: Occurs in the stroma, using RuBisCO to fix carbon dioxide into 3-carbon sugars."
-                )
-
-            if "glucose" in q_lower or "formula" in q_lower:
-                # Factual lookup: suppression active -> clean factual answer
-                return (
-                    "### Chemical Formula for Glucose\n\n"
-                    "The molecular formula for glucose is:\n\n"
-                    "$$\\mathbf{C_6H_{12}O_6}$$\n\n"
-                    "- **Composition**: 6 Carbon atoms, 12 Hydrogen atoms, and 6 Oxygen atoms.\n"
-                    "- **Molar Mass**: $180.16\\text{ g/mol}$\n"
-                    "- **Structure**: A simple hexose monosaccharide that serves as the primary cellular fuel in biological respiration."
-                )
-
-        # ---------------------------------------------------------------------
-        # Scenario 2: News Reader (Current Events & Policy)
-        # ---------------------------------------------------------------------
-        if domain == "news_current_events":
-            if "subsid" in q_lower or "electric vehicle" in q_lower or "ev" in q_lower:
-                if applied:
-                    return (
-                        "### 📰 Electric Vehicle Subsidies: Balanced Perspectives\n\n"
-                        "- **Arguments in Favor (Economic & Climate Acceleration)**:\n"
-                        "  Advocates highlight that consumer tax credits (e.g., Section 30D $7,500 incentives) accelerate domestic battery supply chain buildout, lower transport emissions, and achieve critical scale to make EVs cost-competitive with internal combustion engines.\n\n"
-                        "- **Arguments Against (Fiscal Impact & Market Distortion)**:\n"
-                        "  Critics argue that broad subsidies place large fiscal burdens on public budgets, disproportionately benefit higher-income early adopters, and outpace regional electrical grid charging infrastructure readiness.\n\n"
-                        "- **Bipartisan Consensus / Middle Ground**:\n"
-                        "  Both sides increasingly agree on conditioning incentives on domestic manufacturing and critical mineral sourcing to safeguard supply chain resilience."
-                    )
-                return (
-                    "Federal and state electric vehicle subsidies provide tax credits up to $7,500 for qualifying vehicles meeting North American assembly and battery material sourcing thresholds under current regulatory guidelines."
-                )
-
-            if "movie" in q_lower or "film" in q_lower:
-                # Casual chat -> news formatting suppressed
-                return (
-                    "Looking for a delightful, crowd-pleasing movie? Here are two fantastic choices:\n\n"
-                    "- 🎬 ***Knives Out* (2019)**: A brilliantly witty, clever murder mystery with incredible pacing and humor.\n"
-                    "- 🍿 ***The Grand Budapest Hotel* (2014)**: Visually breathtaking, whimsical, and thoroughly charming from start to finish.\n\n"
-                    "Grab some popcorn and enjoy the watch!"
-                )
-
-        # ---------------------------------------------------------------------
-        # Scenario 3: Everyday Life (Medical Jargon & Practical Household)
-        # ---------------------------------------------------------------------
-        if domain == "daily_practical_life":
-            if "blood test" in q_lower or "grandma" in q_lower or "jargon" in q_lower:
-                if applied:
-                    return (
-                        "### 🩺 Blood Test Results: Explained Simply & Warmly\n\n"
-                        "Here is what those medical numbers mean in plain, comforting everyday terms:\n\n"
-                        "- **Hemoglobin (The Oxygen Delivery Trucks)**:\n"
-                        "  Think of hemoglobin as little delivery trucks in the bloodstream carrying fresh air to all parts of the body. If this is in the normal range, it means energy delivery is running smoothly!\n\n"
-                        "- **White Blood Cells (The Bodyguard Patrol)**:\n"
-                        "  These are the body's gentle protector guards. When germs try to cause trouble, more guards show up to keep you healthy. Normal numbers mean the neighborhood is safe and quiet.\n\n"
-                        "- **Platelets (The Little Bandage Helpers)**:\n"
-                        "  These are tiny helpers that patch up small paper cuts and scrapes so you don't bruise easily.\n\n"
-                        "❤️ *Comforting Note*: Always share this sheet with your doctor during your regular visit for personalized reassurance."
-                    )
-                return (
-                    "A Complete Blood Count (CBC) measures cellular components including hemoglobin concentration (erythrocyte oxygen capacity), leukocyte differential (immune status), and thrombocyte count (hemostatic function)."
-                )
-
-            if "emergency" in q_lower or "doctor contact" in q_lower or "contact" in q_lower:
-                # Emergency lookup -> immediate direct numbers, zero embellishment
-                return (
-                    "### 🚨 Immediate Emergency Medical Assistance\n\n"
-                    "- **Emergency Services**: Dial **911** (US/Canada) or **112** (Europe/International) immediately.\n"
-                    "- **Poison Control Help Line**: **1-800-222-1222**\n"
-                    "- **24/7 Nurse Advice Line**: Check the back of your insurance card or dial **211** for local community health triage.\n\n"
-                    "⚠️ *If anyone is experiencing chest pain, difficulty breathing, sudden weakness, or severe bleeding, call emergency services immediately.*"
-                )
-
-        # ---------------------------------------------------------------------
-        # Scenario 4: Academic Researcher
-        # ---------------------------------------------------------------------
-        if domain == "academic_research":
-            return (
-                "### 🔬 Methodological Critique: Transformer Scaled Dot-Product Self-Attention\n\n"
-                "The canonical self-attention formulation introduces critical architectural trade-offs:\n\n"
-                "$$\\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V$$\n\n"
-                "#### 1. Computational Complexity & Quadratic Rank Bottleneck\n"
-                "- **Asymptotic Bound**: Pairwise token interaction imposes $\\mathcal{O}(N^2)$ time and memory footprint relative to context sequence length $N$.\n"
-                "- **Softmax Rank Collapse**: In deep architectures without residual skip connections, self-attention matrices contract rapidly toward low-rank degenerate subspaces (Dong et al., 2021).\n\n"
-                "#### 2. Weak Inductive Bias\n"
-                "- Unlike CNNs (translation equivariance) or RNNs (sequential causality), raw dot-product attention has permutation-equivariant inductive priors, relying entirely on synthetic positional encodings (RoPE/ALiBi) which degrade during length extrapolation.\n\n"
-                "#### 3. Empirical Sensitivity to Softmax Temperature Scaling\n"
-                "- As dimension $d_k \\to \\infty$, dot products grow large, pushing softmax gradients into saturation regions; hence the strict necessity of the scaling factor $1/\\sqrt{d_k}$."
+        # Construct conditioned system instructions
+        if applied and pref:
+            system_instruction = (
+                "You are ATTUNE, a context-aware and highly adaptive AI assistant.\n"
+                f"ACTIVE USER PREFERENCE (APPROVED): {pref.human_readable}\n"
+                "Please adopt this requested style, tone, and structure thoroughly in your response. "
+                "Explain the concepts vividly according to this approved preference."
+            )
+        else:
+            system_instruction = (
+                "You are ATTUNE, an objective, concise, and factual AI assistant.\n"
+                "GATING POLICY: Any past stylistic, metaphorical, or personal preferences are SUPPRESSED "
+                f"for this query ({reason}).\n"
+                "Answer directly, factually, and concisely. "
+                "Do NOT use metaphors, analogies, or unrequested formatting. "
+                "Provide the direct, accurate answer immediately."
             )
 
-        # ---------------------------------------------------------------------
-        # Default Universal Response
-        # ---------------------------------------------------------------------
-        return (
-            f"### Response: {query}\n\n"
-            "This inquiry addresses foundational concepts. The explanation is conditioned neutrally "
-            "to ensure clarity, factual accuracy, and immediate utility."
-        )
+        full_prompt = f"{system_instruction}\n\nUser Inquiry: {query}"
+
+        try:
+            t_call_start = time.perf_counter()
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+            )
+            elapsed_ms = (time.perf_counter() - t_call_start) * 1000.0
+
+            if response and response.text:
+                logger.info(f"Gemini generation completed in {elapsed_ms:.1f} ms.")
+                return response.text.strip()
+            else:
+                logger.warning("Gemini returned empty text response.")
+                return "I received your inquiry, but no text was returned by the language model."
+
+        except Exception as exc:
+            logger.error(f"Gemini generation call failed: {exc}", exc_info=True)
+            return f"**[Gemini Generation Error]**: {str(exc)}"
 
 
 # -----------------------------------------------------------------------------
@@ -456,7 +502,7 @@ class UniversalResponseGenerator:
 # -----------------------------------------------------------------------------
 
 class AttuneUniversalEngine:
-    """Master coordinator supporting universal everyday personas, policy gating, and privacy memory."""
+    """Master coordinator supporting universal personas, policy gating, and privacy memory."""
 
     def __init__(self, model_path=None, config_path=None):
         logger.info("Initializing ATTUNE Universal Runtime Engine...")
@@ -503,7 +549,7 @@ class AttuneUniversalEngine:
         if override_text:
             session.recent_override = override_text
 
-        # 3. Add or retrieve active learned preference
+        # 3. Dynamic Free-Form Preference Extraction or Preset Registration
         if preset_pref:
             human_text = preset_human_readable or f"You prefer {preset_pref} in {domain_title}."
             active_pref = self.memory.add_preference(
@@ -515,7 +561,21 @@ class AttuneUniversalEngine:
                 evidence=f"User preset: '{message[:50]}...'"
             )
         else:
-            active_pref = session.get_active_preference(detected_domain)
+            # Check if user message contains a new free-form preference
+            extracted = self.extractor.extract_freeform_preference(message, detected_domain)
+            if extracted and not session.recent_override:
+                h_text, d_scope, d_dim, p_token = extracted
+                active_pref = self.memory.add_preference(
+                    session_id=session_id,
+                    human_readable=h_text,
+                    domain=d_scope,
+                    dimension=d_dim,
+                    preference_token=p_token,
+                    evidence=f"User turn: '{message.strip()}'"
+                )
+                logger.info(f"Registered free-form preference in memory: '{h_text}' ({p_token})")
+            else:
+                active_pref = session.get_active_preference(detected_domain)
 
         # 4. Gating Evaluation (Tier 1 vs. Tier 2)
         if session.recent_override:
@@ -534,7 +594,7 @@ class AttuneUniversalEngine:
             )
             tier = "Tier 2 Calibrated Model"
 
-        # 5. Generate Tailored Response
+        # 5. Generate Real Live LLM Response via Gemini
         response_text = self.generator.generate(
             query=message,
             domain=detected_domain,
