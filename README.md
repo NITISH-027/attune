@@ -177,13 +177,14 @@ All benchmarks were evaluated on a completely held-out test set ($N = 200$) with
 
 ATTUNE's gating head was tested zero-shot (without fine-tuning or in-domain adaptation) on external academic preference datasets.
 
-| Benchmark | Scope | NTR (Safety) ↓ | Recall (Adherence) ↑ | Latency | Key Insight |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **PrefEval ($N=150$)** | Technical & CS | **0.0%** | **94.7%** | ~37 ms | Strong domain alignment on technical tasks. |
-| **CUPID ($N=756$)** | Open-Domain Personas | **7.3%** | **16.3%** | ~37 ms | High safety (92.7% suppression) with conservative recall bias on unfamiliar chit-chat. |
+| Benchmark | Scope | Accuracy ↑ | F1 Score ↑ | NTR (Safety) ↓ | Recall (Adherence) ↑ | Latency | Key Insight |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **PrefEval ($N=150$)** | Technical & CS (Curated Split) | **86.0%** | **0.900** | **38.2%** | **100.0%** | ~35 ms | High technical adherence (100% recall); allows technical preferences to bleed into 21/55 tooling queries without explicit overrides. |
+| **CUPID ($N=756$)** | Open-Domain Personas (KAIST) | **67.2%** | **0.248** | **7.3%** | **16.3%** | ~38 ms | High safety (92.7% negative transfer suppression) with conservative recall bias on unfamiliar chit-chat. |
 
-> **Benchmark Calibration Notes:**
-> *The 16.3% recall on CUPID reflects our conservative decision threshold ($\tau^* = 0.900$). The gating model is intentionally calibrated to prevent negative transfer (NTR: 7.3%), meaning it chooses to suppress stylistic assumptions when encountering unfamiliar open-domain personas.*
+> **Honest Academic Benchmark Calibration Notes:**
+> - **PrefEval ($N=150$, Curated ICLR Task Schema):** On the curated 150-instance technical evaluation split, ATTUNE demonstrates **100.0% adherence recall** (retaining valid technical preferences across all 95 eligible instances) and an overall **86.0% accuracy** (**0.900 F1 score**). On suppression-labeled instances ($N=55$), it correctly suppresses all explicit reversals, but wrongly applies preferences in 21 of the 55 cases (**NTR: 38.2%**), reflecting the gate's learned affinity for CS concepts when users switch from conceptual explanations to rapid syntax/CLI queries without providing an explicit reversal prompt.
+> - **CUPID ($N=756$, KAIST Open-Domain):** The **16.3% recall** on CUPID directly reflects our conservative decision threshold ($\tau^* = 0.900$). The gating model is intentionally calibrated to eliminate negative transfer (**NTR: 7.3%**, a 92.7% suppression rate), meaning it chooses to suppress stylistic assumptions when encountering unfamiliar open-domain personas.
 
 ---
 

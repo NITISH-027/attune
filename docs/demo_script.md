@@ -52,7 +52,7 @@ This document provides a structured, high-impact demonstration protocol for tech
   > *On our held-out test split of 200 strictly grouped episodes with Zero Verbatim Query Overlap (Train ∩ Test = 0 queries):*
   > 1. *Negative Transfer dropped from **100% in Fixed Profiles** and **23.3% in Rule Gates** down to **9.2% in ATTUNE** (a >90% reduction).*
   > 2. *We retained **96.25% of valid personalization** ($FSR = 3.75\%$).*
-  > 3. *On external zero-shot benchmarks, ATTUNE scored **100% accuracy on PrefEval** and suppressed **92.7% of negative transfer on CUPID**.*
+  > 3. *On external zero-shot benchmarks, ATTUNE scored **86.0% accuracy on PrefEval** (retaining 100% adherence recall across valid technical preferences, with 38.2% NTR on suppression cases) and achieved **92.7% negative transfer suppression on CUPID** (7.3% NTR, 16.3% recall).*
   >
   > *It runs entirely on standard CPU with **$37.2\text{ ms}$ average latency**, making it ready for production middleware insertion."*
 
@@ -84,7 +84,7 @@ This document provides a structured, high-impact demonstration protocol for tech
 > *"Modern neural networks are notoriously overconfident: uncalibrated softmax logits tend to push probabilities toward 1.0 even on ambiguous boundary cases.
 >
 > 1. **Temperature Scaling ($T^*$):** We optimized a single post-hoc temperature parameter $T = 0.8453$ via L-BFGS on our held-out validation set. This reduced our Expected Calibration Error (ECE) from **0.0242 down to 0.0125** (a 48.3% improvement), ensuring that predicted probabilities accurately reflect empirical likelihood.
-> 2. **Optimal Threshold ($\tau^*$):** In technical assistance, the cost of a false positive (supplying inadequate information during an outage) is far higher than a false negative. By tuning $\tau^* = 0.9000$, we enforced our graduation gate of $\text{NTR} \le 0.05$, completely eliminating false positives ($\text{NTR} = 0.0\%$) while still preserving 96.25% of valid preferences."*
+> 2. **Optimal Threshold ($\tau^*$):** In technical assistance, the cost of a false positive (supplying inadequate information during an outage) is far higher than a false negative. By tuning $\tau^* = 0.9000$, we slash negative transfer down to $\text{NTR} = 9.2\%$ (a 90.8% reduction compared to Fixed Profiles) while preserving 96.25% of valid preferences ($FSR = 3.75\%$)."*
 
 ---
 
