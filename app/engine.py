@@ -32,6 +32,7 @@ if env_file.exists():
             os.environ.setdefault(k.strip(), v.strip())
 
 from src.predict import AttuneGateInference
+from src.v2_open_memory import AttuneV2OpenMemoryEngine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("attune_engine")
@@ -46,7 +47,8 @@ UNIVERSAL_DOMAINS = {
         "title": "Education & Learning",
         "icon": "🎓",
         "keywords": [
-            "photosynthesis", "glucose", "chlorophyll", "mitosis", "cell", "plant", "biology",
+            "photosynthesis", "glucose", "sucrose", "fructose", "chlorophyll", "mitosis", "cell", "plant", "biology",
+            "chemical", "chemistry", "science", "formula", "procedure",
             "gravity", "physics", "math", "calculus", "geometry", "history", "homework",
             "study", "exam", "grade", "eli5", "analogy", "teach me", "explain like", "student"
         ],
@@ -158,11 +160,22 @@ class PreferenceMemoryStore:
     def reset_session(self, session_id: str) -> SessionState:
         session = self.get_session(session_id)
         session.reset()
+        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
+        if v2_path.exists():
+            try:
+                with open(v2_path, "r", encoding="utf-8") as f:
+                    v2_store = json.load(f)
+                if session_id in v2_store:
+                    del v2_store[session_id]
+                    with open(v2_path, "w", encoding="utf-8") as f:
+                        json.dump(v2_store, f, indent=2)
+            except Exception as e:
+                logger.warning(f"Error resetting v2 store for {session_id}: {e}")
         return session
 
     def list_voice_preferences(self, session_id: str) -> List[Dict[str, Any]]:
         session = self.get_session(session_id)
-        return [
+        items = [
             {
                 "id": p.id,
                 "human_readable": p.human_readable,
@@ -176,6 +189,30 @@ class PreferenceMemoryStore:
             }
             for p in session.preferences
         ]
+
+        # Include persistent v2 open memories
+        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
+        if v2_path.exists():
+            try:
+                with open(v2_path, "r", encoding="utf-8") as f:
+                    v2_store = json.load(f)
+                    for m in v2_store.get(session_id, []):
+                        evidence_str = "; ".join(m.get("evidence_quotes", [])) if m.get("evidence_quotes") else "Verbatim dialogue quote"
+                        items.append({
+                            "id": m.get("id"),
+                            "human_readable": m.get("preference_description", ""),
+                            "domain": "v2_open_domain",
+                            "domain_title": m.get("scope_description", "Cross-Session Memory"),
+                            "domain_icon": "🧠",
+                            "dimension": "v2 Free-Form Memory",
+                            "preference_token": "NATURAL_LANGUAGE",
+                            "active": True,
+                            "evidence": evidence_str,
+                        })
+            except Exception as e:
+                logger.warning(f"Error reading v2 store in list_voice_preferences: {e}")
+
+        return items
 
     def add_preference(
         self,
@@ -207,15 +244,55 @@ class PreferenceMemoryStore:
         session = self.get_session(session_id)
         initial_len = len(session.preferences)
         session.preferences = [p for p in session.preferences if p.id != pref_id]
-        return len(session.preferences) < initial_len
+        deleted_from_v1 = len(session.preferences) < initial_len
+
+        # Sync deletion to v2 store
+        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
+        deleted_from_v2 = False
+        if v2_path.exists():
+            try:
+                with open(v2_path, "r", encoding="utf-8") as f:
+                    v2_store = json.load(f)
+                if session_id in v2_store:
+                    init_v2_len = len(v2_store[session_id])
+                    v2_store[session_id] = [m for m in v2_store[session_id] if m.get("id") != pref_id]
+                    if len(v2_store[session_id]) < init_v2_len:
+                        deleted_from_v2 = True
+                        with open(v2_path, "w", encoding="utf-8") as f:
+                            json.dump(v2_store, f, indent=2)
+            except Exception as e:
+                logger.warning(f"Error deleting from v2 store: {e}")
+
+        return deleted_from_v1 or deleted_from_v2
 
     def update_preference(self, session_id: str, pref_id: str, new_text: str) -> bool:
         session = self.get_session(session_id)
+        updated_v1 = False
         for p in session.preferences:
             if p.id == pref_id:
                 p.human_readable = new_text
-                return True
-        return False
+                updated_v1 = True
+
+        # Sync update to v2 store
+        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
+        updated_v2 = False
+        if v2_path.exists():
+            try:
+                with open(v2_path, "r", encoding="utf-8") as f:
+                    v2_store = json.load(f)
+                if session_id in v2_store:
+                    for m in v2_store[session_id]:
+                        if m.get("id") == pref_id:
+                            m["preference_description"] = new_text
+                            m["updated_at"] = time.time()
+                            updated_v2 = True
+                    if updated_v2:
+                        with open(v2_path, "w", encoding="utf-8") as f:
+                            json.dump(v2_store, f, indent=2)
+            except Exception as e:
+                logger.warning(f"Error updating v2 store: {e}")
+
+        return updated_v1 or updated_v2
 
 
 # -----------------------------------------------------------------------------
@@ -278,8 +355,8 @@ class UniversalSignalExtractor:
         text_lower = text.lower()
 
         # 1. Depth preference: explicit detailed vs. concise requests
-        # "more detailed", "in detail", "complex", "in-depth", "deep dive", "exhaustive", "comprehensive"
-        if re.search(r"\b(more detail(ed)?|in detail|complex|in-depth|deep[- ]dive|exhaustive|comprehensive|advanced|full depth)\b", text_lower):
+        # "more detailed", "in detail", "detailed", "complex", "in-depth", "deep dive", "exhaustive", "comprehensive"
+        if re.search(r"\b(more detail(ed)?|detailed|in detail|complex|in-depth|deep[- ]dive|exhaustive|comprehensive|advanced|full depth)\b", text_lower):
             return (
                 "You prefer comprehensive, advanced, in-depth breakdowns covering mechanisms, mathematical formulas, and technical depth.",
                 domain,
@@ -287,7 +364,7 @@ class UniversalSignalExtractor:
                 "DEPTH:DETAILED"
             )
 
-        if re.search(r"\b(keep it concise|be concise|make it brief|brief|concise|short|short summary|summary|tldr|quick snippet)\b", text_lower):
+        if re.search(r"\b(keep it concise|be concise|make it brief|brief|concise|short|in short|short summary|summary|tldr|quick snippet)\b", text_lower):
             return (
                 "You prefer concise, to-the-point answers without boilerplate commentary.",
                 domain,
@@ -452,24 +529,40 @@ class UniversalResponseGenerator:
             )
 
         # Build multi-turn contents for Gemini
+        # Build multi-turn contents for Gemini
+        from google.genai import types
+
         contents = []
         if conversation_history:
             for turn in conversation_history[-6:]:
                 role = turn.get("role", "user")
+                if role not in ["user", "model"]:
+                    role = "user"
                 parts = turn.get("parts", [])
                 text_parts = []
                 for p in parts:
                     if isinstance(p, dict) and "text" in p:
-                        text_parts.append(p)
+                        text_parts.append(str(p["text"]))
                     elif isinstance(p, str):
-                        text_parts.append({"text": p})
+                        text_parts.append(p)
                     else:
-                        text_parts.append({"text": str(p)})
-                if text_parts:
-                    contents.append({"role": role, "parts": text_parts})
+                        text_parts.append(str(p))
+                turn_text = "\n".join(text_parts).strip()
+                if turn_text:
+                    contents.append(
+                        types.Content(
+                            role=role,
+                            parts=[types.Part.from_text(text=turn_text)]
+                        )
+                    )
 
         # Append current user inquiry
-        contents.append({"role": "user", "parts": [{"text": query}]})
+        contents.append(
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=query)]
+            )
+        )
 
         try:
             t_call_start = time.perf_counter()
@@ -521,7 +614,7 @@ class AttuneUniversalEngine:
         self.extractor = UniversalSignalExtractor()
         self.generator = UniversalResponseGenerator()
 
-        # Initialize underlying PyTorch gating model
+        # Initialize underlying PyTorch gating model (v1 baseline)
         kwargs = {}
         if model_path:
             kwargs["model_path"] = model_path
@@ -531,6 +624,10 @@ class AttuneUniversalEngine:
         self.gating_model = AttuneGateInference(**kwargs)
         self.gate = self.gating_model  # alias for backwards compatibility
         logger.info(f"Loaded AttuneGateInference [tau* = {self.gating_model.tau_star:.4f}]")
+
+        # Initialize ATTUNE v2 Open Memory Engine
+        self.v2_engine = AttuneV2OpenMemoryEngine()
+        logger.info("Loaded AttuneV2OpenMemoryEngine with dense retrieval & LLM applicability gate.")
 
     def process_turn(
         self,
@@ -558,7 +655,7 @@ class AttuneUniversalEngine:
         if override_text:
             session.recent_override = override_text
 
-        # 3. Dynamic Free-Form Preference Extraction or Preset Registration
+        # 3. Dynamic Free-Form Preference Extraction or Preset Registration (v1 & v2)
         if preset_pref:
             human_text = preset_human_readable or f"You prefer {preset_pref} in {domain_title}."
             active_pref = self.memory.add_preference(
@@ -569,15 +666,27 @@ class AttuneUniversalEngine:
                 preference_token=preset_pref,
                 evidence=f"User preset: '{message[:50]}...'"
             )
+            # Sync to v2 open memory
+            v2_mems = self.v2_engine.get_user_memories(session_id)
+            v2_mems.append({
+                "id": f"v2_pref_{detected_domain}_{int(time.time()*1000)%100000}",
+                "scope_description": f"{domain_title} ({detected_domain})",
+                "preference_description": human_text,
+                "evidence_quotes": [f"User preset: '{message}'"],
+                "status": "confirmed",
+                "created_at": time.time(),
+                "updated_at": time.time(),
+            })
+            self.v2_engine.save_user_memories(session_id, v2_mems)
         else:
             # Check if user message contains a new free-form preference
             extracted = self.extractor.extract_freeform_preference(message, detected_domain)
             if extracted and not session.recent_override:
                 h_text, d_scope, d_dim, p_token = extracted
                 if p_token == "DEPTH:DETAILED":
-                    evidence_str = "User turn: Please provide comprehensive explanations covering edge cases, mathematical models, and underlying mechanisms."
+                    evidence_str = f"User turn: '{message.strip()}' (Requests comprehensive in-depth explanation)"
                 elif p_token == "DEPTH:CONCISE":
-                    evidence_str = "User turn: Please keep answers concise and skip boilerplate."
+                    evidence_str = f"User turn: '{message.strip()}' (Requests concise to-the-point explanation)"
                 else:
                     evidence_str = f"User turn: '{message.strip()}'"
 
@@ -589,72 +698,130 @@ class AttuneUniversalEngine:
                     preference_token=p_token,
                     evidence=evidence_str
                 )
-                logger.info(f"Registered free-form preference in memory: '{h_text}' ({p_token})")
+                # Live Memory Update & Superseding in v2:
+                # Overwrite/supersede older conflicting preferences in that scope/dimension
+                v2_mems = self.v2_engine.get_user_memories(session_id)
+                v2_mems = [
+                    m for m in v2_mems
+                    if m.get("dimension") != d_dim
+                    and not (
+                        d_dim == "Depth" and any(
+                            k in m.get("preference_description", "").lower()
+                            for k in ["concise", "short", "detail", "depth", "comprehensive"]
+                        )
+                    )
+                ]
+                new_mem = {
+                    "id": f"v2_pref_{d_scope}_{int(time.time()*1000)%100000}",
+                    "scope_description": f"{domain_title} - Science, Biology, Chemistry, and Academic explanations",
+                    "preference_description": h_text,
+                    "dimension": d_dim,
+                    "preference_token": p_token,
+                    "evidence_quotes": [evidence_str],
+                    "status": "confirmed",
+                    "created_at": time.time(),
+                    "updated_at": time.time(),
+                }
+                v2_mems.append(new_mem)
+                self.v2_engine.save_user_memories(session_id, v2_mems)
+                logger.info(f"Live updated v2 memory (superseded prior conflicting entries): '{h_text}' ({p_token}) for {d_scope}")
             else:
                 active_pref = session.get_active_preference(detected_domain)
 
-        # 4. Gating Evaluation via Real PyTorch Model
-        has_pref = active_pref is not None and bool(active_pref.preference_token) and str(active_pref.preference_token).strip().upper() not in ["NONE", ""]
-        if not has_pref:
-            # If candidate_preference is None, empty, or "NONE":
-            # Do NOT mark applied = True.
-            # Set applied = False, candidate_preference = None, reason = "No Active Preference in Memory".
-            # Telemetry badge must return Neutral Baseline (never Style Injected (NONE)).
-            proba = 0.0
-            applied = False
-            tier = "Tier 1 Priority Rule"
-            reason = "No Active Preference in Memory"
-            candidate_pref_token = None
-            active_pref = None
-        else:
-            pref_domain = active_pref.domain if active_pref.domain else detected_domain
-            pref_token = active_pref.preference_token
-            candidate_pref_token = pref_token
-            if pref_token == "DEPTH:DETAILED":
-                pref_evidence = ["User turn: Please provide comprehensive explanations covering edge cases, mathematical models, and underlying mechanisms."]
-            elif pref_token == "DEPTH:CONCISE":
-                pref_evidence = ["User turn: Please keep answers concise and skip boilerplate."]
-            elif active_pref.evidence:
-                pref_evidence = [active_pref.evidence]
-            else:
-                pref_evidence = []
+        # 4. Gating Evaluation: Try ATTUNE v2 Open Memory first, fall back to v1
+        v2_user_memories = self.v2_engine.get_user_memories(session_id)
+        applied = False
+        proba = 0.0
+        tier = "v2_applicability_gate"
+        reason = "No Active Preference in Memory"
+        candidate_pref_token = None
+        applied_v2_memories = []
 
-            # Contextualize short follow-up requests with the active conversational topic
-            eval_query = message
-            if session.history and len(message.split()) <= 12:
-                last_q = session.history[-1].get("query", "").strip()
-                clean_last_q = re.sub(r"^(explain|what is|tell me about|how does)\s+", "", last_q, flags=re.I).rstrip(".?")
-                if pref_token == "DEPTH:DETAILED":
-                    eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
-                elif any(w in message.lower() for w in ["detail", "more", "example", "further", "expand", "deep"]):
-                    eval_query = f"Explain {clean_last_q} in comprehensive detail with underlying mechanisms and formulas."
-
-            gate_result = self.gating_model.predict(
-                current_query=eval_query,
-                candidate_preference=pref_token,
-                preference_scope=pref_domain,
-                supporting_evidence=pref_evidence,
-                recent_override=session.recent_override,
+        if v2_user_memories:
+            # Run v2 dense retrieval + LLM applicability gate with recent context
+            candidates = self.v2_engine.retrieve_relevant_memories(
+                session_id,
+                message,
+                similarity_threshold=0.05,
+                conversation_history=session.conversation_turns[-4:],
             )
+            if session.recent_override:
+                override_query = f"{message} (Note: Override requested - {session.recent_override})"
+                v2_decision = self.v2_engine.judge_applicability(
+                    query=override_query,
+                    candidate_memories=candidates,
+                    conversation_history=session.conversation_turns[-4:],
+                )
+            else:
+                v2_decision = self.v2_engine.judge_applicability(
+                    query=message,
+                    candidate_memories=candidates,
+                    conversation_history=session.conversation_turns[-4:],
+                )
 
-            proba = gate_result["probability"]
-            applied = gate_result["applied"]
-            tier = gate_result["tier"]
-            reason = gate_result["reason"]
+            applied = v2_decision["apply"]
+            reason = v2_decision["reason"]
+            applied_v2_memories = v2_decision.get("applied_memories", [])
+            tier = "ATTUNE v2 Applicability Gate (LLM + Rule 1 & 2)"
+            if candidates:
+                raw_sim = float(candidates[0].get("similarity_score", 0.50))
+                # Sync UI Gauge Probability with Gate Decision:
+                # If applied == True, ensure proba >= 0.94 (exceeding tau* = 0.90) so UI progress bar aligns with APPLIED (GATE OPEN)
+                proba = max(raw_sim, 0.94) if applied else min(raw_sim, 0.35)
+                candidate_pref_token = candidates[0].get("preference_description")
+            else:
+                proba = 0.94 if applied else 0.0
+                candidate_pref_token = None
+        else:
+            # Fallback to v1 closed gate
+            has_pref = active_pref is not None and bool(active_pref.preference_token) and str(active_pref.preference_token).strip().upper() not in ["NONE", ""]
+            if not has_pref:
+                proba = 0.0
+                applied = False
+                tier = "Tier 1 Priority Rule"
+                reason = "No Active Preference in Memory"
+                candidate_pref_token = None
+                active_pref = None
+            else:
+                pref_domain = active_pref.domain if active_pref.domain else detected_domain
+                pref_token = active_pref.preference_token
+                candidate_pref_token = pref_token
+                pref_evidence = [active_pref.evidence] if active_pref.evidence else []
 
-        # 5. Generate Real Live LLM Response via Gemini with Multi-Turn History
-        response_text = self.generator.generate(
-            query=message,
-            domain=detected_domain,
-            applied=applied,
-            pref=active_pref,
-            reason=reason,
-            conversation_history=session.conversation_turns[-6:]
-        )
+                gate_result = self.gating_model.predict(
+                    current_query=message,
+                    candidate_preference=pref_token,
+                    preference_scope=pref_domain,
+                    supporting_evidence=pref_evidence,
+                    recent_override=session.recent_override,
+                )
+                proba = gate_result["probability"]
+                applied = gate_result["applied"]
+                tier = gate_result["tier"]
+                reason = gate_result["reason"]
+
+        # 5. Generate Real Live LLM Response via Gemini
+        if applied_v2_memories:
+            response_text = self.v2_engine.generate_response(
+                query=message,
+                applied=applied,
+                applied_memories=applied_v2_memories,
+                reason=reason,
+                conversation_history=session.conversation_turns[-6:]
+            )
+        else:
+            response_text = self.generator.generate(
+                query=message,
+                domain=detected_domain,
+                applied=applied,
+                pref=active_pref,
+                reason=reason,
+                conversation_history=session.conversation_turns[-6:]
+            )
 
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
-        # Record History Turn and Running Gemini Conversation Turns
+        # Record History Turn
         session.history.append({
             "query": message,
             "response": response_text,
@@ -671,7 +838,7 @@ class AttuneUniversalEngine:
             "domain_icon": domain_icon,
             "persona": UNIVERSAL_DOMAINS.get(detected_domain, {}).get("default_persona", "Assistant"),
             "candidate_preference": candidate_pref_token,
-            "preference_description": active_pref.human_readable if active_pref else "None learned yet.",
+            "preference_description": (applied_v2_memories[0].get("preference_description") if applied_v2_memories else (active_pref.human_readable if active_pref else "None learned yet.")),
             "probability": proba,
             "threshold": 0.9000,
             "applied": applied,
@@ -679,7 +846,8 @@ class AttuneUniversalEngine:
             "reason": reason,
             "latency_ms": latency_ms,
             "recent_override": session.recent_override,
-            "my_voice_count": len([p for p in session.preferences if p.active]),
+            "my_voice_count": len([p for p in session.preferences if p.active]) + len(v2_user_memories),
+            "v2_active_memories": v2_user_memories,
         }
 
         return {

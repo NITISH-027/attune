@@ -1,0 +1,372 @@
+{
+  "timestamp": "2026-10-24T06:44:34Z",
+  "configuration": {
+    "cupid_sample_size": 18,
+    "v1_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "v1_tau_star": 0.9,
+    "v2_embedding": "sentence-transformers/all-MiniLM-L6-v2",
+    "v2_llm": "gemini-3.5-flash-lite"
+  },
+  "benchmark_a_cupid": {
+    "num_records": 18,
+    "b1_plain_gemini": {
+      "accuracy": 0.2777777777777778,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "ntr": 0.5833333333333334,
+      "fsr": 1.0,
+      "mean_latency_ms": 5416.08
+    },
+    "b2_attune_v1": {
+      "accuracy": 0.6666666666666666,
+      "precision": 0.5,
+      "recall": 0.16666666666666666,
+      "f1": 0.25,
+      "ntr": 0.08333333333333333,
+      "fsr": 0.8333333333333334,
+      "mean_latency_ms": 99.75
+    },
+    "v2_experiment": {
+      "accuracy": 0.6111111111111112,
+      "precision": 0.45454545454545453,
+      "recall": 0.8333333333333334,
+      "f1": 0.5882352941176471,
+      "ntr": 0.5,
+      "fsr": 0.16666666666666666,
+      "mean_latency_ms": 2425.31
+    },
+    "sample_details": [
+      {
+        "index": 0,
+        "instance_type": "consistent",
+        "gold": 1,
+        "query": "Help me draft the opening section of my keynote address for the Victorian Literature Society about t...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2 (scope match/suppression): The query specifically mentions the Victorian Literature Society and drafting a keynote address, which directly matches the scope and intent of the stored preference regarding Victorian literature arguments."
+      },
+      {
+        "index": 1,
+        "instance_type": "consistent",
+        "gold": 1,
+        "query": "I need exercises for the Campus Jazz Ensemble's final performance. Here's the solo section I need to...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2 (scope match/suppression): The query explicitly mentions the Campus Jazz Ensemble and asks for exercises for the final performance, which directly matches the memory scope and intent."
+      },
+      {
+        "index": 2,
+        "instance_type": "consistent",
+        "gold": 1,
+        "query": "Help me plan next week's 6AM pre-expedition briefings. We need to cover: final sampling objectives, ...",
+        "b1_pred": 0,
+        "v1_pred": 1,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2: The query directly matches the scope_description '6AM Pre-Expedition Briefings' and semantic intent of the stored preference regarding segmenting updates and placing critical numbers first."
+      },
+      {
+        "index": 3,
+        "instance_type": "consistent",
+        "gold": 1,
+        "query": "Help me create a trainer's manual for implementing progressive overload training. Include example pr...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2: The query matches the progressive overload training scope, so the preference regarding micro-incremental steps and explicit rest periods should be applied to the manual creation."
+      },
+      {
+        "index": 4,
+        "instance_type": "consistent",
+        "gold": 1,
+        "query": "Help me create the structure or template for the impact statement for my quarterly progress report a...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 2 suppression: The current query asks for the structure or template of an impact statement for a quarterly progress report, whereas the candidate preference addresses the requirement of raw numerical datasets for visual data in supplementary materials, which is not applicable to creating an impact statement structure."
+      },
+      {
+        "index": 5,
+        "instance_type": "consistent",
+        "gold": 1,
+        "query": "Help me write the introduction chapter for my book about Georgian-era aristocratic marriages for the...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2: The query explicitly mentions the Wellington Historical Society, which matches the memory's scope description and is relevant to writing the book introduction."
+      },
+      {
+        "index": 6,
+        "instance_type": "contrastive",
+        "gold": 0,
+        "query": "Help me create a presentation for the Metropolitan Symphony Board detailing the Carnegie Hall annex ...",
+        "b1_pred": 1,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2: The current query explicitly involves the Metropolitan Symphony Board and the Carnegie Hall annex renovation, perfectly matching the scope and semantic intent of the stored preference."
+      },
+      {
+        "index": 7,
+        "instance_type": "contrastive",
+        "gold": 0,
+        "query": "Help me create IP strategy advice for startups graduating from the TechStars program, focusing on pr...",
+        "b1_pred": 1,
+        "v1_pred": 1,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2: Genuine scope match because the query specifically concerns TechStars startups and IP strategy advice, aligning with the scope and intent of the stored preference."
+      },
+      {
+        "index": 8,
+        "instance_type": "contrastive",
+        "gold": 0,
+        "query": "Help me draft a season-end presentation for the Paris Running Club that compares this season's train...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2 (GENUINE SCOPE MATCH): The query explicitly involves the Paris Running Club and asks for a training program analysis and framework, directly matching the scope and intent of the stored preference."
+      },
+      {
+        "index": 9,
+        "instance_type": "contrastive",
+        "gold": 0,
+        "query": "I need help finalizing my playoff analysis system in R for processing multiple games. I have receive...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2 (Genuine Scope Match): The user's query involves writing and enhancing R code for playoff game analysis, which directly matches the R Statistical Software scope and the preference regarding code efficiency and statistical methods."
+      },
+      {
+        "index": 10,
+        "instance_type": "contrastive",
+        "gold": 0,
+        "query": "Help me write end-of-year property listings for first-time luxury buyers. I will provide you with al...",
+        "b1_pred": 1,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2 applies because the query specifically asks for property listings for first-time luxury buyers, which genuinely matches the scope_description and semantic intent of the stored memory."
+      },
+      {
+        "index": 11,
+        "instance_type": "contrastive",
+        "gold": 0,
+        "query": "Help me analyze these 18th-century mathematical proofs for the Journal of Historical Statistics. Her...",
+        "b1_pred": 1,
+        "v1_pred": 0,
+        "v2_pred": 1,
+        "v2_reason": "Rule 2: The query genuinely matches the scope description 'Journal of Historical Statistics' and involves the exact domain of 18th-century mathematical proofs."
+      },
+      {
+        "index": 12,
+        "instance_type": "changing",
+        "gold": 0,
+        "query": "Help me write a review for this manuscript. Here are my review notes:\n\nReview Notes:\n- Novel theoret...",
+        "b1_pred": 1,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 1 override: The query explicitly states 'Please do not use previous stylistic conventions', which contradicts the stored preference on how to handle reviews."
+      },
+      {
+        "index": 13,
+        "instance_type": "changing",
+        "gold": 0,
+        "query": "Help me write a comprehensive results section for my Journal of Neuroscience manuscript. Here's my o...",
+        "b1_pred": 1,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 1 override: The user query explicitly requests 'Please do not use previous stylistic conventions', which contradicts the stored preference on stylistic presentation for the manuscript."
+      },
+      {
+        "index": 14,
+        "instance_type": "changing",
+        "gold": 0,
+        "query": "Help me write end-of-year property listings for first-time luxury buyers. I will provide you with al...",
+        "b1_pred": 1,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 1 applies: The query explicitly states 'Please do not use previous stylistic conventions', which overrides the stored preference for property descriptions."
+      },
+      {
+        "index": 15,
+        "instance_type": "changing",
+        "gold": 0,
+        "query": "Help me develop a comprehensive breeding and presentation strategy for the Royal Horticultural Socie...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 1 override: The current query explicitly requests 'Please do not use previous stylistic conventions', which overrides the stored preference."
+      },
+      {
+        "index": 16,
+        "instance_type": "changing",
+        "gold": 0,
+        "query": "Help me draft staff guidelines for managing the manuscript access process, ensuring proper documenta...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 1 override: The current query explicitly instructs not to use previous stylistic conventions and focuses broadly on drafting staff guidelines rather than revising specific manuscript access documentation forms."
+      },
+      {
+        "index": 17,
+        "instance_type": "changing",
+        "gold": 0,
+        "query": "Help me write the introduction to my annual report, incorporating information from the Radio Times A...",
+        "b1_pred": 0,
+        "v1_pred": 0,
+        "v2_pred": 0,
+        "v2_reason": "Rule 1 override: The current query explicitly states 'Note: Please do not use previous stylistic conventions', which contradicts and overrides the stored preference."
+      }
+    ]
+  },
+  "benchmark_b_lifecycle": {
+    "num_scenarios": 4,
+    "stage_2_recall": {
+      "b1_plain_gemini": 1.0,
+      "b2_attune_v1": 0.5,
+      "v2_experiment": 0.75
+    },
+    "stage_3_ntr_suppression": {
+      "b1_plain_gemini": 0.0,
+      "b2_attune_v1": 0.75,
+      "v2_experiment": 0.0
+    },
+    "stage_5_correction_fidelity": {
+      "b1_plain_gemini": 1.0,
+      "b2_attune_v1": 0.0,
+      "v2_experiment": 1.0
+    },
+    "scenario_details": [
+      {
+        "domain": "Education & Science",
+        "session_1_learned": [
+          "Always use everyday cooking and kitchen metaphors"
+        ],
+        "session_2_in_scope": {
+          "query": "Explain how photosynthesis works in green plants.",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 0,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2 (GENUINE SCOPE MATCH): The query asks for an explanation of a scientific concept (photosynthesis), which directly matches the scope description of 'mem_kitchen_metaphors_science'."
+        },
+        "session_3_unrelated": {
+          "query": "Help me write a formal legal cover letter applying for a paralegal position at a civil litigation law firm.",
+          "gold": 0,
+          "b1_pred": 0,
+          "v1_pred": 0,
+          "v2_pred": 0,
+          "v2_reason": "Rule 2: The query is about writing a legal cover letter, which does not match the preference's scope regarding explaining scientific concepts."
+        },
+        "session_4_updated": [
+          "Explain all science concepts with precise academic definitions and concise mathematical formulas"
+        ],
+        "session_5_post_correction": {
+          "query": "Explain how cellular respiration and ATP synthesis work.",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 0,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2: The current query asks for an explanation of a scientific concept (cellular respiration and ATP synthesis), which genuinely matches the scope_description of memory mem_kitchen_metaphors_science."
+        }
+      },
+      {
+        "domain": "News & Current Events",
+        "session_1_learned": [
+          "Provide an objective two-column comparison table contrasting market-oriented vs government-intervention perspectives"
+        ],
+        "session_2_in_scope": {
+          "query": "Analyze the latest changes to federal electric vehicle tax credits and domestic manufacturing subsidies.",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 1,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2: The query discusses federal electric vehicle tax credits and domestic manufacturing subsidies, which falls under economic and political news, matching the scope description and intent of the stored preference."
+        },
+        "session_3_unrelated": {
+          "query": "Write a gentle, whimsical bedtime story about a baby rabbit finding a glowing mushroom in an enchanted forest.",
+          "gold": 0,
+          "b1_pred": 0,
+          "v1_pred": 1,
+          "v2_pred": 0,
+          "v2_reason": "Rule 2: The current query is about writing a gentle bedtime story about a baby rabbit, which does not match the scope of economic and political news."
+        },
+        "session_4_updated": [
+          "Summarize news and policy updates in 3 bullet points focusing strictly on direct consumer pocketbook impact, without using tables."
+        ],
+        "session_5_post_correction": {
+          "query": "What are the latest findings from nationwide universal basic income pilot programs?",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 0,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2 (scope match): The query discusses policy updates on UBI pilot programs, which genuinely matches the scope of news and policy updates."
+        }
+      },
+      {
+        "domain": "Technical Coding",
+        "session_1_learned": [
+          "Write code in modern TypeScript with strict type annotations, avoid Python, and include unit tests with Jest"
+        ],
+        "session_2_in_scope": {
+          "query": "Implement a sliding-window rate limiter algorithm.",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 1,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2 (Genuine Scope Match): The query asks to implement an algorithm (sliding-window rate limiter), which directly matches the scope for programming and algorithm questions."
+        },
+        "session_3_unrelated": {
+          "query": "What are the nutritional and cardiovascular benefits of the Mediterranean diet for managing cholesterol?",
+          "gold": 0,
+          "b1_pred": 0,
+          "v1_pred": 1,
+          "v2_pred": 0,
+          "v2_reason": "Rule 2: The query is a nutritional and health-related inquiry about the Mediterranean diet, which is completely outside the scope of the stored preference concerning TypeScript programming and algorithm questions."
+        },
+        "session_4_updated": [
+          "Write code in idiomatic Rust with zero-cost abstractions, avoiding TypeScript"
+        ],
+        "session_5_post_correction": {
+          "query": "Implement an LRU cache data structure.",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 0,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2: The query is a programming and algorithm question, which is a genuine scope match for the stored preference to write code in idiomatic Rust."
+        }
+      },
+      {
+        "domain": "Daily Life & Health",
+        "session_1_learned": [],
+        "session_2_in_scope": {
+          "query": "My routine blood test shows a fasting triglyceride level of 240 mg/dL. What does this mean?",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 0,
+          "v2_pred": 0,
+          "v2_reason": "No relevant stored memories retrieved (out of scope)."
+        },
+        "session_3_unrelated": {
+          "query": "How do I configure my home Wi-Fi router to use Cloudflare 1.1.1.1 secure DNS resolvers?",
+          "gold": 0,
+          "b1_pred": 0,
+          "v1_pred": 1,
+          "v2_pred": 0,
+          "v2_reason": "No relevant stored memories retrieved (out of scope)."
+        },
+        "session_4_updated": [
+          "Include exact biochemical pathways and clinical pathophysiology terminology"
+        ],
+        "session_5_post_correction": {
+          "query": "My lab report indicates an elevated high-sensitivity C-reactive protein (hs-CRP) level of 7.8 mg/L. What does this indicate?",
+          "gold": 1,
+          "b1_pred": 1,
+          "v1_pred": 0,
+          "v2_pred": 1,
+          "v2_reason": "Rule 2: The query is asking about specific lab results (hs-CRP), which genuinely matches the scope_description for mem_nursing_pathophysiology ('When discussing lab results')."
+        }
+      }
+    ]
+  }
+}
