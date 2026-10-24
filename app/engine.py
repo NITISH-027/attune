@@ -140,6 +140,7 @@ class PreferenceMemoryStore:
 
     def __init__(self):
         self._sessions: Dict[str, SessionState] = {}
+        self.v2_engine = None
 
     def get_session(self, session_id: str) -> SessionState:
         if session_id not in self._sessions:
@@ -148,64 +149,68 @@ class PreferenceMemoryStore:
             self._sessions[session_id] = session
         return self._sessions[session_id]
 
-    def reset_session(self, session_id: str) -> SessionState:
+    def reset_session(self, session_id: str, user_id: Optional[str] = None, clear_memories: bool = False) -> SessionState:
         session = self.get_session(session_id)
         session.reset()
-        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
-        if v2_path.exists():
-            try:
-                with open(v2_path, "r", encoding="utf-8") as f:
-                    v2_store = json.load(f)
-                if session_id in v2_store:
-                    del v2_store[session_id]
-                    with open(v2_path, "w", encoding="utf-8") as f:
-                        json.dump(v2_store, f, indent=2)
-            except Exception as e:
-                logger.warning(f"Error resetting v2 store for {session_id}: {e}")
+        if clear_memories:
+            target_uid = user_id or session_id
+            if self.v2_engine:
+                self.v2_engine.clear_user_memories(target_uid)
+            v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
+            if v2_path.exists():
+                try:
+                    with open(v2_path, "r", encoding="utf-8") as f:
+                        v2_store = json.load(f)
+                    if target_uid in v2_store:
+                        del v2_store[target_uid]
+                        with open(v2_path, "w", encoding="utf-8") as f:
+                            json.dump(v2_store, f, indent=2)
+                except Exception as e:
+                    logger.warning(f"Error resetting v2 store for {target_uid}: {e}")
         return session
 
-    def list_voice_preferences(self, session_id: str) -> List[Dict[str, Any]]:
-        session = self.get_session(session_id)
-        items = [
-            {
-                "id": p.id,
-                "human_readable": p.human_readable,
-                "domain": p.domain,
-                "domain_title": UNIVERSAL_DOMAINS.get(p.domain, {}).get("title", p.domain),
-                "domain_icon": UNIVERSAL_DOMAINS.get(p.domain, {}).get("icon", "✨"),
-                "dimension": p.dimension,
-                "preference_token": p.preference_token,
-                "active": p.active,
-                "evidence": p.evidence,
-            }
-            for p in session.preferences if p.active
-        ]
+    def list_voice_preferences(self, user_id: str, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        target_uid = user_id or session_id or "default_user"
+        items = []
+        seen_ids = set()
 
-        # Include persistent v2 open memories (deduplicated by ID)
-        seen_ids = {item["id"] for item in items}
-        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
-        if v2_path.exists():
-            try:
-                with open(v2_path, "r", encoding="utf-8") as f:
-                    v2_store = json.load(f)
-                    for m in v2_store.get(session_id, []):
-                        m_id = m.get("id")
-                        if m_id not in seen_ids:
-                            evidence_str = "; ".join(m.get("evidence_quotes", [])) if m.get("evidence_quotes") else "Verbatim user dialogue quote"
-                            items.append({
-                                "id": m_id,
-                                "human_readable": m.get("preference_description", ""),
-                                "domain": "v2_open_domain",
-                                "domain_title": m.get("scope_description", "Cross-Session Memory"),
-                                "domain_icon": "🧠",
-                                "dimension": m.get("dimension", "v2 Open Memory"),
-                                "preference_token": m.get("preference_token", "NATURAL_LANGUAGE"),
-                                "active": True,
-                                "evidence": evidence_str,
-                            })
-                            seen_ids.add(m_id)
-            except Exception as e:
-                logger.warning(f"Error reading v2 store in list_voice_preferences: {e}")
+        # 1. Fetch from persistent v2 open memory engine (cross-session user store)
+        if self.v2_engine:
+            v2_mems = self.v2_engine.get_user_memories(target_uid)
+            for m in v2_mems:
+                m_id = m.get("id")
+                if m_id not in seen_ids:
+                    evidence_str = "; ".join(m.get("evidence_quotes", [])) if m.get("evidence_quotes") else "Verbatim user dialogue quote"
+                    items.append({
+                        "id": m_id,
+                        "human_readable": m.get("preference_description", ""),
+                        "domain": "v2_open_domain",
+                        "domain_title": m.get("scope_description", "Cross-Session Memory"),
+                        "domain_icon": "🧠",
+                        "dimension": m.get("dimension", "v2 Open Memory"),
+                        "preference_token": m.get("preference_token", "NATURAL_LANGUAGE"),
+                        "active": True,
+                        "evidence": evidence_str,
+                    })
+                    seen_ids.add(m_id)
+
+        # 2. Also check session preferences if session_id provided
+        if session_id:
+            session = self.get_session(session_id)
+            for p in session.preferences:
+                if p.active and p.id not in seen_ids:
+                    items.append({
+                        "id": p.id,
+                        "human_readable": p.human_readable,
+                        "domain": p.domain,
+                        "domain_title": UNIVERSAL_DOMAINS.get(p.domain, {}).get("title", p.domain),
+                        "domain_icon": UNIVERSAL_DOMAINS.get(p.domain, {}).get("icon", "✨"),
+                        "dimension": p.dimension,
+                        "preference_token": p.preference_token,
+                        "active": p.active,
+                        "evidence": p.evidence,
+                    })
+                    seen_ids.add(p.id)
 
         return items
 
@@ -235,57 +240,48 @@ class PreferenceMemoryStore:
         session.preferences.append(new_pref)
         return new_pref
 
-    def delete_preference(self, session_id: str, pref_id: str) -> bool:
-        session = self.get_session(session_id)
-        initial_len = len(session.preferences)
-        session.preferences = [p for p in session.preferences if p.id != pref_id]
-        deleted_from_v1 = len(session.preferences) < initial_len
+    def delete_preference(self, user_id: str, pref_id: str, session_id: Optional[str] = None) -> bool:
+        target_uid = user_id or session_id or "default_user"
+        deleted_from_v1 = False
+        if session_id:
+            session = self.get_session(session_id)
+            initial_len = len(session.preferences)
+            session.preferences = [p for p in session.preferences if p.id != pref_id]
+            deleted_from_v1 = len(session.preferences) < initial_len
 
         # Sync deletion to v2 store
-        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
         deleted_from_v2 = False
-        if v2_path.exists():
-            try:
-                with open(v2_path, "r", encoding="utf-8") as f:
-                    v2_store = json.load(f)
-                if session_id in v2_store:
-                    init_v2_len = len(v2_store[session_id])
-                    v2_store[session_id] = [m for m in v2_store[session_id] if m.get("id") != pref_id]
-                    if len(v2_store[session_id]) < init_v2_len:
-                        deleted_from_v2 = True
-                        with open(v2_path, "w", encoding="utf-8") as f:
-                            json.dump(v2_store, f, indent=2)
-            except Exception as e:
-                logger.warning(f"Error deleting from v2 store: {e}")
+        if self.v2_engine:
+            v2_mems = self.v2_engine.get_user_memories(target_uid)
+            init_v2_len = len(v2_mems)
+            filtered_mems = [m for m in v2_mems if m.get("id") != pref_id]
+            if len(filtered_mems) < init_v2_len:
+                self.v2_engine.save_user_memories(target_uid, filtered_mems)
+                deleted_from_v2 = True
 
         return deleted_from_v1 or deleted_from_v2
 
-    def update_preference(self, session_id: str, pref_id: str, new_text: str) -> bool:
-        session = self.get_session(session_id)
+    def update_preference(self, user_id: str, pref_id: str, new_text: str, session_id: Optional[str] = None) -> bool:
+        target_uid = user_id or session_id or "default_user"
         updated_v1 = False
-        for p in session.preferences:
-            if p.id == pref_id:
-                p.human_readable = new_text
-                updated_v1 = True
+        if session_id:
+            session = self.get_session(session_id)
+            for p in session.preferences:
+                if p.id == pref_id:
+                    p.human_readable = new_text
+                    updated_v1 = True
 
         # Sync update to v2 store
-        v2_path = ROOT_DIR / "data" / "v2_memory_store.json"
         updated_v2 = False
-        if v2_path.exists():
-            try:
-                with open(v2_path, "r", encoding="utf-8") as f:
-                    v2_store = json.load(f)
-                if session_id in v2_store:
-                    for m in v2_store[session_id]:
-                        if m.get("id") == pref_id:
-                            m["preference_description"] = new_text
-                            m["updated_at"] = time.time()
-                            updated_v2 = True
-                    if updated_v2:
-                        with open(v2_path, "w", encoding="utf-8") as f:
-                            json.dump(v2_store, f, indent=2)
-            except Exception as e:
-                logger.warning(f"Error updating v2 store: {e}")
+        if self.v2_engine:
+            v2_mems = self.v2_engine.get_user_memories(target_uid)
+            for m in v2_mems:
+                if m.get("id") == pref_id:
+                    m["preference_description"] = new_text
+                    m["updated_at"] = time.time()
+                    updated_v2 = True
+            if updated_v2:
+                self.v2_engine.save_user_memories(target_uid, v2_mems)
 
         return updated_v1 or updated_v2
 
@@ -338,127 +334,14 @@ class UniversalSignalExtractor:
                 return text.strip()
         return None
 
-    def extract_freeform_preference(
-        self,
-        text: str,
-        domain: str
-    ) -> Optional[Tuple[str, str, str, str]]:
-        """
-        Extracts free-form style preference from user input:
-        Returns: (human_readable, domain, dimension, preference_token) or None
-        """
-        text_lower = text.lower()
+    PREFERENCE_INDICATOR_PATTERN = re.compile(
+        r"\b(?:always|never|from now on|going forward|remember to|make sure to|i prefer|my preference is|please ensure|do not use|don't use|stop using|i want you to always|i want all answers to|when (?:you |i ask |explaining |writing |answering |discussing |coding ))\b",
+        re.IGNORECASE
+    )
 
-        # 1. Depth preference: explicit detailed vs. concise requests
-        # "more detailed", "in detail", "detailed", "complex", "in-depth", "deep dive", "exhaustive", "comprehensive"
-        if re.search(r"\b(more detail(ed)?|detailed|in detail|complex|in-depth|deep[- ]dive|exhaustive|comprehensive|advanced|full depth)\b", text_lower):
-            return (
-                "You prefer comprehensive, advanced, in-depth breakdowns covering mechanisms, mathematical formulas, and technical depth.",
-                domain,
-                "Depth",
-                "DEPTH:DETAILED"
-            )
-
-        if re.search(r"\b(keep it concise|be concise|make it brief|brief|concise|short|in short|short summary|summary|tldr|quick snippet)\b", text_lower):
-            return (
-                "You prefer concise, to-the-point answers without boilerplate commentary.",
-                domain,
-                "Depth",
-                "DEPTH:CONCISE"
-            )
-
-        # 2. Analogies / Metaphors request: "explain using X analogies", "use X metaphors", "explain with X"
-        m = re.search(r"\b(?:explain|describe|illustrate)\b.*?\b(?:using|with)\s+([a-zA-Z0-9\s,]+?)(?:\s+analogies|\s+metaphors|\.|\?|$)", text_lower)
-        if m:
-            topic = m.group(1).strip()
-            if topic and len(topic) > 2 and topic not in ["this", "it", "that", "code", "words"]:
-                human_text = f"You prefer concepts explained using {topic} analogies."
-                return (human_text, domain, "Tone", "TONE:ANALOGIES")
-
-        if "cooking analogies" in text_lower or "kitchen metaphors" in text_lower:
-            return (
-                "You prefer complex concepts explained using everyday cooking metaphors.",
-                domain,
-                "Tone",
-                "TONE:SIMPLE_ANALOGIES"
-            )
-
-        if "grocery shopping" in text_lower or "budget analogies" in text_lower or "family budget" in text_lower:
-            return (
-                "You prefer concepts explained using everyday grocery shopping and family budget analogies.",
-                domain,
-                "Tone",
-                "TONE:ANALOGIES"
-            )
-
-        # 3. Structure preference: bullets
-        m_bullet = re.search(r"\b(?:in\s+)?(\d+)\s+(?:neutral\s+)?bullet\s+points\b", text_lower)
-        if m_bullet:
-            num = m_bullet.group(1)
-            return (
-                f"You prefer responses structured in {num} clear, actionable bullet points.",
-                domain,
-                "Structure",
-                "STRUCTURE:BULLETS"
-            )
-        if "bullet points" in text_lower or "in bullets" in text_lower:
-            return (
-                "You prefer structured bullet points over continuous paragraphs.",
-                domain,
-                "Structure",
-                "STRUCTURE:BULLETS"
-            )
-
-        # 4. Perspective preference: balanced neutral
-        if re.search(r"\b(neutral|both sides|balanced|unbiased|multiple perspectives)\b", text_lower):
-            return (
-                "You prefer policy and news queries summarized in balanced neutral bullet points covering both perspectives.",
-                domain,
-                "Perspective",
-                "PERSPECTIVE:BALANCED_NEUTRAL"
-            )
-
-        # 5. Tone preference: grandmother / plain language
-        if re.search(r"\b(grandmother|grandma|simple words|plain words|no jargon|eli5)\b", text_lower):
-            return (
-                "You prefer medical and legal terms translated into comforting, simple everyday words your grandmother can understand.",
-                domain,
-                "Tone",
-                "TONE:WARM_PLAIN_LANGUAGE"
-            )
-
-        # 6. Academic critique
-        if re.search(r"\b(critique the methodology|formal proof|derivations|academic critique)\b", text_lower):
-            return (
-                "You require academic critique with deep methodology, formal notation, and computational trade-off analysis.",
-                domain,
-                "Depth",
-                "DEPTH:EXHAUSTIVE_ACADEMIC"
-            )
-
-        # 7. Content constraints: Safety & hazards, warnings, precautions
-        if re.search(r"\b(safety|hazard|hazards|precaution|precautions|danger|warning|warnings|risk|contraindication)\b", text_lower):
-            return (
-                "You prefer explanations of chemical, biological, and technical procedures to always explicitly include safety hazards, precautions, and warning notes.",
-                domain,
-                "Safety & Hazards",
-                "CONTENT:SAFETY_HAZARDS"
-            )
-
-        # 8. Open-ended preference statement: "always X", "never X", "from now on X", "going forward X", "make sure to X"
-        m_pref = re.search(r"\b(?:always|never|from now on|going forward|make sure to|remember to|i prefer)\s+([^.!?\n]+)", text, re.IGNORECASE)
-        if m_pref:
-            clause = m_pref.group(0).strip()
-            if len(clause) > 6 and len(clause.split()) >= 2:
-                human_text = f"You prefer: {clause[0].upper() + clause[1:]}."
-                return (
-                    human_text,
-                    domain,
-                    "Custom Directive",
-                    "OPEN:CUSTOM"
-                )
-
-        return None
+    def has_preference_directive(self, text: str) -> bool:
+        """Checks if user turn expresses a persistent behavioral or stylistic preference directive."""
+        return bool(self.PREFERENCE_INDICATOR_PATTERN.search(text))
 
 
 
@@ -644,12 +527,14 @@ class AttuneUniversalEngine:
 
         # Initialize ATTUNE v2 Open Memory Engine
         self.v2_engine = AttuneV2OpenMemoryEngine()
+        self.memory.v2_engine = self.v2_engine
         logger.info("Loaded AttuneV2OpenMemoryEngine with dense retrieval & LLM applicability gate.")
 
     def process_turn(
         self,
         session_id: str,
         message: str,
+        user_id: Optional[str] = None,
         preset_domain: Optional[str] = None,
         preset_pref: Optional[str] = None,
         preset_dimension: Optional[str] = None,
@@ -657,6 +542,7 @@ class AttuneUniversalEngine:
         force_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         t0 = time.perf_counter()
+        target_user_id = user_id or session_id or "default_user"
         session = self.memory.get_session(session_id)
 
         # 1. Detect Domain & Persona (inherit previous domain for short follow-ups)
@@ -672,7 +558,7 @@ class AttuneUniversalEngine:
         if override_text:
             session.recent_override = override_text
 
-        # 3. Dynamic Free-Form Preference Extraction or Preset Registration (v1 & v2)
+        # 3. Dynamic Arbitrary Preference Learning or Preset Registration
         newly_learned_memory = None
 
         if preset_pref:
@@ -685,8 +571,7 @@ class AttuneUniversalEngine:
                 preference_token=preset_pref,
                 evidence=f"User preset: '{message[:50]}...'"
             )
-            # Sync to v2 open memory
-            v2_mems = self.v2_engine.get_user_memories(session_id)
+            v2_mems = self.v2_engine.get_user_memories(target_user_id)
             new_v2_mem = {
                 "id": f"v2_pref_{detected_domain}_{int(time.time()*1000)%100000}",
                 "scope_description": f"{domain_title} ({detected_domain})",
@@ -699,79 +584,44 @@ class AttuneUniversalEngine:
                 "updated_at": time.time(),
             }
             v2_mems.append(new_v2_mem)
-            self.v2_engine.save_user_memories(session_id, v2_mems)
+            self.v2_engine.save_user_memories(target_user_id, v2_mems)
             newly_learned_memory = new_v2_mem
-        else:
-            # Check if user message contains a new free-form preference
-            extracted = self.extractor.extract_freeform_preference(message, detected_domain)
-            if extracted and not session.recent_override:
-                h_text, d_scope, d_dim, p_token = extracted
-                if p_token == "DEPTH:DETAILED":
-                    evidence_str = f"User turn: '{message.strip()}' (Requests comprehensive in-depth explanation)"
-                elif p_token == "DEPTH:CONCISE":
-                    evidence_str = f"User turn: '{message.strip()}' (Requests concise to-the-point explanation)"
-                elif p_token == "CONTENT:SAFETY_HAZARDS":
-                    evidence_str = f"User turn: '{message.strip()}' (Requests safety hazards & precautions)"
-                else:
-                    evidence_str = f"User turn: '{message.strip()}'"
-
-                active_pref = self.memory.add_preference(
-                    session_id=session_id,
-                    human_readable=h_text,
-                    domain=d_scope,
-                    dimension=d_dim,
-                    preference_token=p_token,
-                    evidence=evidence_str
+        elif self.extractor.has_preference_directive(message) and not session.recent_override:
+            # Generalized Arbitrary Preference Learning (Zero hardcoding, preserves user scope)
+            try:
+                prior_mems = self.v2_engine.get_user_memories(target_user_id)
+                prior_len = len(prior_mems)
+                updated_mems = self.v2_engine.infer_and_update_memory(
+                    user_id=target_user_id,
+                    dialogue=f"User: {message}\nAssistant: Understood.",
+                    existing_memories=prior_mems
                 )
-                # Live Memory Update & Superseding in v2:
-                # Overwrite/supersede older conflicting preferences in that scope/dimension
-                v2_mems = self.v2_engine.get_user_memories(session_id)
-                v2_mems = [
-                    m for m in v2_mems
-                    if m.get("dimension") != d_dim
-                    and not (
-                        d_dim == "Depth" and any(
-                            k in m.get("preference_description", "").lower()
-                            for k in ["concise", "short", "detail", "depth", "comprehensive"]
+                if updated_mems:
+                    if len(updated_mems) > prior_len:
+                        newly_learned_memory = updated_mems[-1]
+                    else:
+                        for m_new in updated_mems:
+                            if m_new not in prior_mems:
+                                newly_learned_memory = m_new
+                                break
+                    if newly_learned_memory:
+                        active_pref = self.memory.add_preference(
+                            session_id=session_id,
+                            human_readable=newly_learned_memory.get("preference_description", "New Preference"),
+                            domain=detected_domain,
+                            dimension="Style",
+                            preference_token="NATURAL_LANGUAGE",
+                            evidence=newly_learned_memory.get("evidence_quotes", [message])[0] if newly_learned_memory.get("evidence_quotes") else message
                         )
-                    )
-                ]
-                new_mem = {
-                    "id": f"v2_pref_{d_scope}_{int(time.time()*1000)%100000}",
-                    "scope_description": f"{domain_title} - Science, Biology, Chemistry, and Academic explanations",
-                    "preference_description": h_text,
-                    "dimension": d_dim,
-                    "preference_token": p_token,
-                    "evidence_quotes": [message.strip()],
-                    "status": "confirmed",
-                    "created_at": time.time(),
-                    "updated_at": time.time(),
-                }
-                v2_mems.append(new_mem)
-                self.v2_engine.save_user_memories(session_id, v2_mems)
-                newly_learned_memory = new_mem
-                logger.info(f"Live updated v2 memory (learned into reusable store): '{h_text}' ({p_token}) for {d_scope}")
-            else:
-                # Fallback: check for open-ended natural language preference statements
-                pref_cues = ["always", "never", "prefer", "preference", "from now on", "going forward", "make sure to", "remember to", "include", "safety", "hazard", "warn", "don't use", "stop using"]
-                if any(cue in message.lower() for cue in pref_cues) and not session.recent_override:
-                    try:
-                        prior_len = len(self.v2_engine.get_user_memories(session_id))
-                        updated_mems = self.v2_engine.infer_and_update_memory(
-                            user_id=session_id,
-                            dialogue=f"User: {message}\nAssistant: Understood.",
-                            existing_memories=self.v2_engine.get_user_memories(session_id)
-                        )
-                        if updated_mems and len(updated_mems) > prior_len:
-                            newly_learned_memory = updated_mems[-1]
-                            logger.info(f"LLM inferred new open preference: '{newly_learned_memory.get('preference_description')}'")
-                    except Exception as e_mem:
-                        logger.warning(f"LLM memory extraction fallback error: {e_mem}")
-
-                active_pref = session.get_active_preference(detected_domain)
+                        logger.info(f"Learned arbitrary preference for user '{target_user_id}': '{newly_learned_memory.get('preference_description')}' (Scope: '{newly_learned_memory.get('scope_description')}')")
+            except Exception as e_mem:
+                logger.warning(f"Generalized LLM memory extraction error: {e_mem}")
+            active_pref = session.get_active_preference(detected_domain)
+        else:
+            active_pref = session.get_active_preference(detected_domain)
 
         # 4. Gating Evaluation: Try ATTUNE v2 Open Memory first, fall back to v1
-        v2_user_memories = self.v2_engine.get_user_memories(session_id)
+        v2_user_memories = self.v2_engine.get_user_memories(target_user_id)
         applied = False
         proba = 0.0
         tier = "v2_applicability_gate"
@@ -782,10 +632,10 @@ class AttuneUniversalEngine:
         candidates = []
 
         if v2_user_memories:
-            # Run v2 dense retrieval + LLM applicability gate with recent context
             candidates = self.v2_engine.retrieve_relevant_memories(
-                session_id,
-                message,
+                user_id=target_user_id,
+                query=message,
+                top_k=3,
                 similarity_threshold=0.05,
                 conversation_history=session.conversation_turns[-4:],
             )
@@ -808,15 +658,14 @@ class AttuneUniversalEngine:
             applied_v2_memories = v2_decision.get("applied_memories", [])
             applied_ids = {m.get("id") for m in applied_v2_memories}
             suppressed_v2_memories = [m for m in candidates if m.get("id") not in applied_ids]
-            tier = "ATTUNE v2 Applicability Gate (LLM + Rule 1 & 2)"
+            tier = "ATTUNE v2 Applicability Gate (Dense MiniLM + LLM Topic-Scope Gate)"
             if candidates:
-                raw_sim = float(candidates[0].get("similarity_score", 0.50))
-                # Sync UI Gauge Probability with Gate Decision:
-                # If applied == True, ensure proba >= 0.94 (exceeding tau* = 0.90) so UI progress bar aligns with APPLIED (GATE OPEN)
-                proba = max(raw_sim, 0.94) if applied else min(raw_sim, 0.35)
+                raw_sim = float(candidates[0].get("similarity_score", 0.0))
+                # Unmanufactured actual dense semantic similarity
+                proba = raw_sim
                 candidate_pref_token = " • ".join([m.get("preference_description", "") for m in candidates])
             else:
-                proba = 0.94 if applied else 0.0
+                proba = 0.0
                 candidate_pref_token = None
         else:
             # Fallback to v1 closed gate

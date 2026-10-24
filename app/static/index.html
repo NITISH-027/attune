@@ -102,6 +102,11 @@
           <span>v2 CUPID Recall:</span>
           <span class="font-bold text-emerald-200">83.3% (5.0x vs v1)</span>
         </div>
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-300 shadow-sm" title="Unwanted personalization rate on out-of-scope triggers (50% failure rate on contrastive cases)">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span>Out-of-Scope NTR:</span>
+          <span class="font-bold text-amber-200">50.0% (Challenge)</span>
+        </div>
         <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/60 text-cyan-300 shadow-sm" title="Verbatim dialogue evidence backing every learned memory">
           <span>Evidence Grounded:</span>
           <span class="font-bold text-cyan-200">100% Verbatim</span>
@@ -180,12 +185,12 @@
           <span class="text-[10px] text-indigo-300 font-mono bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800/40">Academic</span>
         </button>
 
-        <!-- Reset Button -->
-        <button onclick="resetSession()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 flex items-center space-x-1.5">
+        <!-- New Chat (Fresh Conversation) Button -->
+        <button onclick="resetSession(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 flex items-center space-x-1.5" title="Start a fresh chat (clears conversational context turns while preserving persistent learned preferences in My Voice across chats)">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
-          <span>Reset</span>
+          <span>New Chat</span>
         </button>
 
       </div>
@@ -413,13 +418,21 @@
         <!-- TAB B: MY VOICE MEMORY -->
         <!-- ============================================================= -->
         <div id="tab-content-voice" class="p-5 space-y-4 flex-1 hidden">
-          <div class="border-b border-slate-800 pb-3">
-            <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-1.5">
-              <span>👤 My Voice & Privacy Controls</span>
-            </h3>
-            <p class="text-xs text-slate-400 mt-1">
-              ATTUNE is completely transparent. Here is what the AI has learned about you. You can edit or delete any preference at any time.
-            </p>
+          <div class="border-b border-slate-800 pb-3 flex items-start justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-1.5">
+                <span>👤 My Voice &amp; Privacy Controls</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-1">
+                Persistent across chats in isolated local file (<code class="text-cyan-400 font-mono text-[10px]">data/user_memories/</code>). Git ignored.
+              </p>
+              <p class="text-[10px] font-mono text-slate-500 mt-0.5">
+                User ID: <span id="user-id-display" class="text-slate-300"></span>
+              </p>
+            </div>
+            <button onclick="clearAllVoiceMemories()" class="px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[11px] font-medium transition flex items-center space-x-1 flex-shrink-0" title="Wipe all persistent memories for this user profile">
+              <span>🧹 Wipe All</span>
+            </button>
           </div>
 
           <!-- Preferences List Container -->
@@ -435,7 +448,16 @@
 
   <!-- JAVASCRIPT APPLICATION LOGIC -->
   <script>
-    const SESSION_ID = 'user_universal_session_' + Math.random().toString(36).substring(2, 9);
+    function getOrCreateUserId() {
+      let uid = localStorage.getItem('attune_user_id');
+      if (!uid) {
+        uid = 'usr_' + Math.random().toString(36).substring(2, 10);
+        localStorage.setItem('attune_user_id', uid);
+      }
+      return uid;
+    }
+    const USER_ID = getOrCreateUserId();
+    let SESSION_ID = 'chat_' + Math.random().toString(36).substring(2, 9);
     let isProcessing = false;
 
     // Tab Switching
@@ -657,7 +679,7 @@
     // Fetch and render My Voice memory list
     async function fetchVoicePreferences() {
       try {
-        const res = await fetch(`/api/memory?session_id=${SESSION_ID}`);
+        const res = await fetch(`/api/memory?user_id=${encodeURIComponent(USER_ID)}&session_id=${encodeURIComponent(SESSION_ID)}`);
         if (!res.ok) return;
         const data = await res.json();
         renderVoiceList(data.preferences);
@@ -683,14 +705,15 @@
         <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-cyan-300 flex items-center space-x-1.5">
-              <span>${p.domain_icon}</span>
-              <span>${p.domain_title} &bull; ${p.dimension}</span>
+              <span>${p.domain_icon || '💡'}</span>
+              <span>${p.domain_title || 'Universal'} &bull; ${p.dimension || 'Preference'}</span>
             </span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">${p.preference_token}</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">${p.preference_token || 'CUSTOM'}</span>
           </div>
-          <p class="text-xs text-slate-200 font-sans">${escapeHtml(p.human_readable)}</p>
+          <p class="text-xs text-slate-200 font-sans">${escapeHtml(p.human_readable || p.preference_description || '')}</p>
+          ${p.scope_description ? `<p class="text-[10px] font-mono text-cyan-400/80">Scope: ${escapeHtml(p.scope_description)}</p>` : ''}
           <div class="flex items-center justify-end space-x-2 pt-1 border-t border-slate-800/60">
-            <button onclick="editVoicePreference('${p.id}', '${escapeHtml(p.human_readable)}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
+            <button onclick="editVoicePreference('${p.id}', '${escapeHtml(p.human_readable || p.preference_description || '')}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition">
               ✏️ Edit
             </button>
             <button onclick="deleteVoicePreference('${p.id}')" class="px-2.5 py-1 rounded bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 text-[11px] transition">
@@ -707,7 +730,7 @@
         const res = await fetch('/api/memory/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: SESSION_ID, pref_id: prefId })
+          body: JSON.stringify({ session_id: SESSION_ID, user_id: USER_ID, pref_id: prefId })
         });
         if (res.ok) {
           const data = await res.json();
@@ -727,7 +750,7 @@
         const res = await fetch('/api/memory/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: SESSION_ID, pref_id: prefId, new_text: newText.trim() })
+          body: JSON.stringify({ session_id: SESSION_ID, user_id: USER_ID, pref_id: prefId, new_text: newText.trim() })
         });
         if (res.ok) {
           const data = await res.json();
@@ -736,6 +759,14 @@
       } catch (e) {
         console.error('Update error:', e);
       }
+    }
+
+    // Wipe all memories for user
+    async function clearAllVoiceMemories() {
+      if (!confirm('Are you sure you want to permanently wipe all persistent memories for this user profile?')) {
+        return;
+      }
+      await resetSession(true);
     }
 
     // Send a turn
@@ -754,6 +785,7 @@
         const payload = {
           message: message,
           session_id: SESSION_ID,
+          user_id: USER_ID,
           ...options
         };
 
@@ -848,24 +880,31 @@
     }
 
     // Reset Conversation & Memory
-    async function resetSession() {
+    async function resetSession(clearMemories = false) {
       try {
         const res = await fetch('/api/reset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: SESSION_ID })
+          body: JSON.stringify({ session_id: SESSION_ID, user_id: USER_ID, clear_memories: clearMemories })
         });
         const data = await res.json();
 
+        // Spin up a brand new fresh chat session
+        SESSION_ID = 'chat_' + Math.random().toString(36).substring(2, 9);
+
         const container = document.getElementById('messages-container');
+        const resetMsg = clearMemories
+          ? 'All persistent learned preferences wiped and conversation cleared.'
+          : 'New conversation started. Previous dialogue turns excluded from context (clean isolation). Active preferences in "My Voice" remain persistent across chats.';
+
         container.innerHTML = `
           <div class="flex items-start space-x-3">
             <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-teal-400 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-950">
               &alpha;
             </div>
             <div class="flex-1 bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 leading-relaxed shadow-sm">
-              <span class="font-semibold text-cyan-400 text-xs block mb-1">Session Reset</span>
-              Conversation history cleared. Memory reset to default baseline state.
+              <span class="font-semibold text-cyan-400 text-xs block mb-1">New Clean Session (${SESSION_ID})</span>
+              ${resetMsg}
             </div>
           </div>
         `;
@@ -889,6 +928,8 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      const uidDisplay = document.getElementById('user-id-display');
+      if (uidDisplay) uidDisplay.textContent = USER_ID;
       fetchVoicePreferences();
     });
   </script>

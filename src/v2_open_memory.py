@@ -188,16 +188,48 @@ class AttuneV2OpenMemoryEngine:
         except Exception as e:
             logger.error(f"Error writing memory store {self.storage_path}: {e}")
 
+    def _user_file_path(self, user_id: str) -> Path:
+        safe_id = "".join(c for c in user_id if c.isalnum() or c in ("-", "_")).strip() or "default_user"
+        user_dir = ROOT_DIR / "data" / "user_memories"
+        user_dir.mkdir(parents=True, exist_ok=True)
+        return user_dir / f"{safe_id}.json"
+
     def get_user_memories(self, user_id: str) -> List[Dict[str, Any]]:
+        # First check isolated user partition file
+        u_path = self._user_file_path(user_id)
+        if u_path.exists():
+            try:
+                with open(u_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error reading user memory file {u_path}: {e}")
+        # Fall back to centralized store
         store = self._read_store()
         return store.get(user_id, [])
 
     def save_user_memories(self, user_id: str, memories: List[Dict[str, Any]]):
+        # Save to isolated user partition file (Privacy Boundary)
+        u_path = self._user_file_path(user_id)
+        try:
+            temp_path = u_path.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(memories, f, indent=2, ensure_ascii=False)
+            temp_path.replace(u_path)
+        except Exception as e:
+            logger.error(f"Error writing user memory file {u_path}: {e}")
+
+        # Mirror to centralized store
         store = self._read_store()
         store[user_id] = memories
         self._write_store(store)
 
     def clear_user_memories(self, user_id: str):
+        u_path = self._user_file_path(user_id)
+        if u_path.exists():
+            try:
+                u_path.unlink()
+            except Exception as e:
+                logger.error(f"Error deleting user memory file {u_path}: {e}")
         store = self._read_store()
         if user_id in store:
             del store[user_id]
@@ -241,21 +273,27 @@ class AttuneV2OpenMemoryEngine:
         prompt = f"""You are the ATTUNE v2 Cross-Session Preference Memory Engine.
 Analyze the following completed conversation dialogue between a user and an assistant.
 
-GOAL: Extract persistent, cross-session user preferences about response style, tone, format, or methodology.
+GOAL: Extract persistent, cross-session user preferences about response style, tone, format, content constraints, or methodology.
 
 STRICT RULES:
-1. DISTINGUISH ONE-TIME REQUESTS FROM PERSISTENT PREFERENCES:
-   - If the user asks for a specific one-off task (e.g. "write a poem about cats", "summarize this article in 3 lines", "help me fix this syntax error"), that is a ONE-TIME request. Do NOT save it as memory.
-   - If the user states an ongoing preference (e.g. "always explain science using cooking metaphors", "I prefer balanced two-column tables for news", "never include boilerplate code", "from now on...", "going forward..."), or repeatedly asks for the same style across turns, that is a PERSISTENT preference. Save it.
-2. VERBATIM EVIDENCE:
-   - In `evidence_quotes`, include the EXACT words spoken by the user that prove this preference.
-3. MEMORY CORRECTION & SUPERSEDING:
+1. ARBITRARY PREFERENCE LEARNING:
+   - Extract ANY user preference (e.g. content constraints, safety instructions, code conventions, tone, structure, citation rules).
+   - Distinguish one-time requests (e.g., "write a poem about cats", "fix this error") from ongoing preferences ("from now on...", "always...", "never...", "when explaining..."). Only save persistent preferences.
+
+2. STRICT SCOPE PRESERVATION (NO UNAUTHORIZED EXPANSION):
+   - Set `scope_description` to the user's EXACT stated scope condition. NEVER expand, extrapolate, or generalize the scope without user permission.
+   - If user says: "when explaining chemistry procedures", the scope MUST be "When explaining chemistry procedures" (DO NOT expand to all science, biology, or education).
+   - If user says: "when writing Python code", the scope MUST be "When writing Python code".
+   - Only set scope to "General" if the user gave an unconditional instruction with no topic or domain limit (e.g. "always keep answers concise").
+
+3. MANDATORY CONFLICT RESOLUTION & SUPERSEDING:
    - Here are the user's CURRENT active memories:
 {json.dumps(memories, indent=2)}
-   - If the user explicitly changes, contradicts, or reverses a prior preference (e.g. "Actually, stop using cooking metaphors, use academic formulas instead"), UPDATE or REPLACE the existing memory entry. Do NOT accumulate conflicting rules.
-4. NATURAL LANGUAGE DESCRIPTIONS:
-   - `scope_description`: Clear natural language describing when the preference applies (e.g., "When explaining scientific or educational concepts").
-   - `preference_description`: Clear natural language describing the desired response style (e.g., "Use everyday cooking and kitchen metaphors").
+   - If the new preference conflicts with, contradicts, or changes an existing active memory (e.g. "detailed" vs "concise", "cooking analogies" vs "academic formulas", "TypeScript" vs "Rust", "include safety hazards" vs "focus strictly on theoretical mechanisms"), you MUST supersede or update the old memory.
+   - Set `action: "update"` targeting the existing memory ID, or `action: "delete"` on the old one. Contradictory preferences on the same scope/dimension must NEVER both remain active.
+
+4. VERBATIM EVIDENCE:
+   - In `evidence_quotes`, include the EXACT words spoken by the user that prove this preference.
 
 DIALOGUE TO ANALYZE:
 {dialogue_text}
@@ -306,7 +344,6 @@ Provide output strictly adhering to the JSON schema."""
                             logger.info(f"V2 Memory: Updated memory {m.get('id')}")
                             break
                     if not updated and op.get("preference_description"):
-                        # If not found, add as new
                         new_id = target_id or f"mem_{int(time.time() * 1000) % 100000}"
                         memories.append({
                             "id": new_id,
@@ -321,35 +358,44 @@ Provide output strictly adhering to the JSON schema."""
                 elif action == "add":
                     if op.get("preference_description"):
                         new_id = target_id or f"mem_{int(time.time() * 1000) % 100000}"
-                        # Check if duplicate or contradicting existing scope
-                        existing_idx = None
-                        for i, m in enumerate(memories):
-                            if m.get("scope_description", "").strip().lower() == op.get("scope_description", "").strip().lower():
-                                existing_idx = i
-                                break
-                        if existing_idx is not None:
-                            # Update existing rather than creating duplicate scope
-                            memories[existing_idx] = {
-                                "id": memories[existing_idx]["id"],
-                                "scope_description": op.get("scope_description", memories[existing_idx]["scope_description"]),
-                                "preference_description": op.get("preference_description"),
-                                "evidence_quotes": op.get("evidence_quotes", []),
-                                "status": op.get("status", "confirmed"),
-                                "created_at": memories[existing_idx].get("created_at", time.time()),
-                                "updated_at": time.time(),
-                            }
-                            logger.info(f"V2 Memory: Replaced matching scope memory {memories[existing_idx]['id']}")
-                        else:
-                            memories.append({
-                                "id": new_id,
-                                "scope_description": op.get("scope_description", "General"),
-                                "preference_description": op.get("preference_description"),
-                                "evidence_quotes": op.get("evidence_quotes", []),
-                                "status": op.get("status", "confirmed"),
-                                "created_at": time.time(),
-                                "updated_at": time.time(),
-                            })
-                            logger.info(f"V2 Memory: Added new memory {new_id}")
+                        new_desc = op.get("preference_description", "").lower()
+                        new_scope = op.get("scope_description", "General").lower()
+
+                        # Programmatic conflict resolution: remove any memory with opposing polarity on same scope
+                        cleaned_memories = []
+                        for m in memories:
+                            m_desc = m.get("preference_description", "").lower()
+                            m_scope = m.get("scope_description", "General").lower()
+                            same_scope = (m_scope == new_scope) or ("general" in m_scope and "general" in new_scope) or (m_scope in new_scope) or (new_scope in m_scope)
+                            is_conflict = False
+                            if same_scope:
+                                # Detailed vs concise
+                                if any(w in new_desc for w in ["concise", "brief", "in short"]) and any(w in m_desc for w in ["detail", "exhaustive", "comprehensive", "in-depth"]):
+                                    is_conflict = True
+                                elif any(w in new_desc for w in ["detail", "exhaustive", "comprehensive", "in-depth"]) and any(w in m_desc for w in ["concise", "brief", "in short"]):
+                                    is_conflict = True
+                                # Hazard vs mechanism
+                                elif ("hazard" in new_desc or "safety" in new_desc) and ("mechanism" in m_desc or "theory" in m_desc):
+                                    is_conflict = True
+                                elif ("mechanism" in new_desc or "theory" in new_desc) and ("hazard" in m_desc or "safety" in m_desc):
+                                    is_conflict = True
+
+                            if not is_conflict:
+                                cleaned_memories.append(m)
+                            else:
+                                logger.info(f"V2 Memory: Programmatically superseded conflicting memory {m.get('id')} in favor of new preference")
+
+                        memories = cleaned_memories
+                        memories.append({
+                            "id": new_id,
+                            "scope_description": op.get("scope_description", "General"),
+                            "preference_description": op.get("preference_description"),
+                            "evidence_quotes": op.get("evidence_quotes", []),
+                            "status": op.get("status", "confirmed"),
+                            "created_at": time.time(),
+                            "updated_at": time.time(),
+                        })
+                        logger.info(f"V2 Memory: Added new memory {new_id} [Scope: {op.get('scope_description')}]")
 
             self.save_user_memories(user_id, memories)
             return memories
@@ -378,16 +424,6 @@ Provide output strictly adhering to the JSON schema."""
         memories = memories_override if memories_override is not None else self.get_user_memories(user_id)
         if not memories:
             return []
-
-        # If user has a small set of confirmed memories (<= top_k), return all of them
-        # so the LLM Applicability Gate can perform full contextual gating without false drops
-        if len(memories) <= top_k:
-            scored_memories = []
-            for m in memories:
-                m_copy = dict(m)
-                m_copy["similarity_score"] = float(m.get("similarity_score", 0.95))
-                scored_memories.append(m_copy)
-            return scored_memories
 
         # Construct textual representations for embedding
         mem_texts = [
@@ -480,13 +516,16 @@ TWO GOLDEN GATING RULES & CORE PRINCIPLES:
    - CONTRADICTING OVERRIDE: ONLY suppress (apply: false) if the user's current query explicitly CONTRADICTS the candidate memory (e.g. stored memory is "in detail", but user says "give a 1-word answer"). If the current query requests, updates, or reinforces the same style (e.g., "in short explain" with the concise preference, or "explain in detail" with the detailed preference), you MUST return apply: true! DO NOT mark it false as redundant.
    - PURE FORMULA / SYMBOL EXCLUSION: If the user query is asking for a pure factual 1-token symbol, chemical formula, single number, or raw definition lookup (e.g., "What is the exact chemical formula for glucose?", "What is the atomic number of Gold?"), DO NOT apply stylistic elaboration or long prose (apply: false, SUPPRESSED). Return neutral direct factual answer.
 
-3. RULE 2 (TOPIC SCOPE MATCHING, NOT STYLE-KEYWORD MATCHING):
-   - Check if the TOPIC/SUBJECT of the current query (resolved in the context of recent conversation history, e.g. follow-up questions about sucrose after glucose, or asking "where sucrose is used") falls within the `scope_description` of the candidate memory (e.g., Science / Biology / Chemistry / Education / Technical explanations).
-   - CRITICAL REQUIREMENT: Even if the current query is a normal question like "now for sucrose say" or "where sucrose is used" with NO style keywords in it, if its topic matches `scope_description` (and it is not a pure formula/symbol lookup), you MUST return apply: true!
-   - DO NOT treat follow-up queries like "now for sucrose say" as incomplete fragments; understand them through the recent conversation context.
-   - ONLY return apply: false (SUPPRESSED) if:
-     a) The query switches to an unrelated topic outside `scope_description` (e.g., asking for movie recommendations or router configuration while memory is for science/education), OR
-     b) The query triggers Rule 1 (explicit override or pure symbol/formula lookup).
+3. RULE 2 (STRICT SCOPE MATCHING & SUPPRESSION OF UNWANTED PERSONALIZATION):
+   - A preference should ONLY be applied if the current query genuinely matches the specific topic, task, and condition defined in `scope_description`.
+   - STRICT NEGATIVE TRIGGER CONTROL (DO NOT OVER-PERSONALIZE):
+     * If the query is outside `scope_description` (e.g. asking for legal/administrative help when memory is for chemistry, or asking about entertainment when memory is for programming), you MUST return apply: false (SUPPRESSED).
+     * If the query asks for a general factual explanation where applying the stylistic constraint would be inappropriate, unrequested, or an over-generalization, return apply: false.
+     * When in doubt about whether a query is truly within the user's intended scope, default to apply: false to protect against unwanted personalization.
+   - LEGITIMATE FOLLOW-UP CARRY-FORWARD:
+     * If the query is on-topic and genuinely falls within `scope_description` (e.g. asking for the procedure of recrystallization when memory scope is chemistry procedures), return apply: true without requiring the user to repeat style keywords.
+   - CONFLICT RESOLUTION:
+     * If candidate memories contain contradictory instructions, select only the most recent/confirmed memory ID and suppress the older conflicting one.
 
 Output JSON with:
 - "apply": boolean (true if at least one memory should be applied, false if suppressed)

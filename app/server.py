@@ -65,6 +65,7 @@ engine = AttuneUniversalEngine()
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = "default_session"
+    user_id: Optional[str] = None
     preset_domain: Optional[str] = None
     preset_pref: Optional[str] = None
     preset_dimension: Optional[str] = None
@@ -74,15 +75,19 @@ class ChatRequest(BaseModel):
 
 class ResetRequest(BaseModel):
     session_id: Optional[str] = "default_session"
+    user_id: Optional[str] = None
+    clear_memories: bool = False
 
 
 class DeleteMemoryRequest(BaseModel):
-    session_id: str
+    session_id: Optional[str] = "default_session"
+    user_id: Optional[str] = None
     pref_id: str
 
 
 class UpdateMemoryRequest(BaseModel):
-    session_id: str
+    session_id: Optional[str] = "default_session"
+    user_id: Optional[str] = None
     pref_id: str
     new_text: str
 
@@ -98,9 +103,11 @@ def chat_endpoint(req: ChatRequest):
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
     try:
+        target_user = req.user_id or req.session_id or "default_user"
         result = engine.process_turn(
             session_id=req.session_id or "default_session",
             message=req.message.strip(),
+            user_id=target_user,
             preset_domain=req.preset_domain,
             preset_pref=req.preset_pref,
             preset_dimension=req.preset_dimension,
@@ -135,11 +142,16 @@ def status_endpoint():
         "active_architecture": "ATTUNE v2 Open Memory Engine (Dense MiniLM + LLM Topic-Scope Gate)",
         "v2_metrics": {
             "cupid_open_domain_recall": round(v2_stats.get("recall", 0.833) * 100, 1),
+            "cupid_negative_trigger_rate": round(v2_stats.get("ntr", 0.50) * 100, 1),
+            "unwanted_personalization_rate": "50.0% (Empirical challenge: applies preferences wrongly in 50% of contrastive cases)",
+            "cupid_precision": round(v2_stats.get("precision", 0.455) * 100, 1),
+            "cupid_f1": round(v2_stats.get("f1", 0.588) * 100, 1),
             "v1_cupid_recall": round(v1_stats.get("recall", 0.167) * 100, 1),
-            "recall_gain": "5.0x",
+            "v1_negative_trigger_rate": round(v1_stats.get("ntr", 0.083) * 100, 1),
+            "recall_gain": "5.0x (83.3% vs 16.7%)",
             "lifecycle_correction_fidelity": round(b_b.get("stage_5_correction_fidelity", {}).get("v2_experiment", 1.0) * 100, 1) if isinstance(b_b.get("stage_5_correction_fidelity"), dict) else 100.0,
             "evidence_grounding_rate": 100.0,
-            "gate_mechanism": "Gemini 3.5 Flash Lite Semantic & Topic-Scope Gate (Golden Rules 1 & 2)",
+            "gate_mechanism": "Gemini 3.5 Flash Lite Semantic & Topic-Scope Gate (Strict Suppression + Golden Rules 1 & 2)",
             "dense_retrieval_backbone": "sentence-transformers/all-MiniLM-L6-v2",
         },
         "v1_baseline": {
@@ -163,50 +175,56 @@ def status_endpoint():
 
 
 @app.get("/api/memory")
-def get_memory_endpoint(session_id: str = "default_session"):
+def get_memory_endpoint(session_id: Optional[str] = "default_session", user_id: Optional[str] = None):
     """Returns the list of active learned preferences for 'My Voice'."""
+    target_user = user_id or session_id or "default_session"
     return {
         "session_id": session_id,
-        "preferences": engine.memory.list_voice_preferences(session_id)
+        "user_id": target_user,
+        "preferences": engine.memory.list_voice_preferences(user_id=target_user)
     }
 
 
 @app.post("/api/memory/delete")
 def delete_memory_endpoint(req: DeleteMemoryRequest):
     """Deletes or forgets a specific preference to give users complete control."""
-    success = engine.memory.delete_preference(req.session_id, req.pref_id)
+    target_user = req.user_id or req.session_id or "default_session"
+    success = engine.memory.delete_preference(pref_id=req.pref_id, user_id=target_user)
     if not success:
         raise HTTPException(status_code=404, detail="Preference ID not found.")
     return {
         "status": "success",
         "message": "Preference removed from My Voice memory.",
-        "preferences": engine.memory.list_voice_preferences(req.session_id)
+        "preferences": engine.memory.list_voice_preferences(user_id=target_user)
     }
 
 
 @app.post("/api/memory/update")
 def update_memory_endpoint(req: UpdateMemoryRequest):
     """Updates a learned preference description in 'My Voice'."""
-    success = engine.memory.update_preference(req.session_id, req.pref_id, req.new_text)
+    target_user = req.user_id or req.session_id or "default_session"
+    success = engine.memory.update_preference(pref_id=req.pref_id, new_text=req.new_text, user_id=target_user)
     if not success:
         raise HTTPException(status_code=404, detail="Preference ID not found.")
     return {
         "status": "success",
         "message": "Preference updated successfully.",
-        "preferences": engine.memory.list_voice_preferences(req.session_id)
+        "preferences": engine.memory.list_voice_preferences(user_id=target_user)
     }
 
 
 @app.post("/api/reset")
 def reset_endpoint(req: ResetRequest):
-    """Resets the memory state for a given session."""
+    """Resets conversation history for a given session. Preserves persistent user memory unless clear_memories=True."""
     session_id = req.session_id or "default_session"
-    engine.memory.reset_session(session_id)
+    target_user = req.user_id or session_id
+    engine.memory.reset_session(session_id=session_id, user_id=target_user, clear_memories=req.clear_memories)
     return {
         "status": "success",
-        "message": f"Session '{session_id}' state reset successfully.",
+        "message": f"Session '{session_id}' state reset successfully (memories {'cleared' if req.clear_memories else 'preserved for user'}).",
         "session_id": session_id,
-        "preferences": engine.memory.list_voice_preferences(session_id)
+        "user_id": target_user,
+        "preferences": engine.memory.list_voice_preferences(user_id=target_user)
     }
 
 
