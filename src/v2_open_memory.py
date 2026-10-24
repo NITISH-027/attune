@@ -77,12 +77,16 @@ class MemoryOperationItem(BaseModel):
 
 
 class MemoryExtractionPayload(BaseModel):
-    has_persistent_preference: bool = Field(description="True only if user demonstrated a persistent preference, False for one-time tasks")
+    has_persistent_preference: bool = Field(
+        description="True ONLY if user explicitly established, updated, or revised an ENDURING preference for future answers. False for ordinary questions, one-time task requests, or third-party quotes."
+    )
     operations: List[MemoryOperationItem] = Field(
         default_factory=list,
         description="List of memory items with action and item details"
     )
-    analysis: str = Field(description="Brief explanation distinguishing persistent preference vs one-time prompt")
+    analysis: str = Field(
+        description="Brief explanation distinguishing persistent preference vs one-time prompt, ordinary question, or third-party quote"
+    )
 
 
 class GatingDecisionSchema(BaseModel):
@@ -207,21 +211,24 @@ class AttuneV2OpenMemoryEngine:
         store = self._read_store()
         return store.get(user_id, [])
 
-    def save_user_memories(self, user_id: str, memories: List[Dict[str, Any]]):
+    def save_user_memories(self, user_id: str, memories: List[Dict[str, Any]]) -> bool:
         # Save to isolated user partition file (Privacy Boundary)
         u_path = self._user_file_path(user_id)
         try:
+            u_path.parent.mkdir(parents=True, exist_ok=True)
             temp_path = u_path.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(memories, f, indent=2, ensure_ascii=False)
             temp_path.replace(u_path)
-        except Exception as e:
-            logger.error(f"Error writing user memory file {u_path}: {e}")
 
-        # Mirror to centralized store
-        store = self._read_store()
-        store[user_id] = memories
-        self._write_store(store)
+            # Mirror to centralized store
+            store = self._read_store()
+            store[user_id] = memories
+            self._write_store(store)
+            return True
+        except Exception as e:
+            logger.error(f"Error writing user memory file {u_path.name}: {e}")
+            raise RuntimeError(f"Storage write error: {type(e).__name__}") from e
 
     def clear_user_memories(self, user_id: str):
         u_path = self._user_file_path(user_id)
@@ -229,7 +236,7 @@ class AttuneV2OpenMemoryEngine:
             try:
                 u_path.unlink()
             except Exception as e:
-                logger.error(f"Error deleting user memory file {u_path}: {e}")
+                logger.error(f"Error deleting user memory file {u_path.name}: {e}")
         store = self._read_store()
         if user_id in store:
             del store[user_id]
@@ -244,56 +251,92 @@ class AttuneV2OpenMemoryEngine:
         user_id: str,
         dialogue: Union[List[Dict[str, str]], str],
         existing_memories: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[Dict[str, Any]]:
+        return_details: bool = False,
+    ) -> Union[List[Dict[str, Any]], Tuple[List[Dict[str, Any]], Dict[str, Any]]]:
         """
-        Analyzes a completed dialogue session using Gemini with structured JSON.
-        - Extracts free-form natural language preferences.
-        - Backs entries with verbatim evidence quotes.
-        - Distinguishes one-time situational instructions from persistent preferences.
-        - Supports memory correction: updates or supersedes conflicting memories.
-        - Persists to data/v2_memory_store.json.
+        Analyzes conversation dialogue using Gemini with structured JSON schema.
+        Evaluates user turns for potential enduring memory updates.
+        Returns explicit extraction/write outcomes: "no_update_needed", "saved", "updated", or "failed".
         """
+        outcome = {
+            "status": "no_update_needed",
+            "memory": None,
+            "error": None,
+            "analysis": None
+        }
+
         if existing_memories is None:
             memories = self.get_user_memories(user_id)
         else:
             memories = list(existing_memories)
 
-        # Format dialogue into text
+        # Format real dialogue into text without fabrication
         if isinstance(dialogue, list):
-            dialogue_text = "\n".join(
-                f"{turn.get('role', 'user').capitalize()}: {turn.get('content', '')}"
-                for turn in dialogue
-            )
+            formatted_turns = []
+            for turn in dialogue:
+                role = turn.get("role", "user").capitalize()
+                content = str(turn.get("content", "")).strip()
+                if content:
+                    formatted_turns.append(f"{role}: {content}")
+            dialogue_text = "\n".join(formatted_turns)
         else:
-            dialogue_text = str(dialogue)
+            dialogue_text = str(dialogue).strip()
 
-        if not dialogue_text.strip():
-            return memories
+        if not dialogue_text:
+            return (memories, outcome) if return_details else memories
 
         prompt = f"""You are the ATTUNE v2 Cross-Session Preference Memory Engine.
-Analyze the following completed conversation dialogue between a user and an assistant.
+Analyze the following conversation dialogue between a user and an assistant to determine if the user has established, updated, or revised an EXPLICIT ENDURING PREFERENCE for future interactions.
 
 GOAL: Extract persistent, cross-session user preferences about response style, tone, format, content constraints, or methodology.
 
-STRICT RULES:
-1. ARBITRARY PREFERENCE LEARNING:
-   - Extract ANY user preference (e.g. content constraints, safety instructions, code conventions, tone, structure, citation rules).
-   - Distinguish one-time requests (e.g., "write a poem about cats", "fix this error") from ongoing preferences ("from now on...", "always...", "never...", "when explaining..."). Only save persistent preferences.
+CRITICAL CLASSIFICATION RULES:
 
-2. STRICT SCOPE PRESERVATION (NO UNAUTHORIZED EXPANSION):
-   - Set `scope_description` to the user's EXACT stated scope condition. NEVER expand, extrapolate, or generalize the scope without user permission.
-   - If user says: "when explaining chemistry procedures", the scope MUST be "When explaining chemistry procedures" (DO NOT expand to all science, biology, or education).
-   - If user says: "when writing Python code", the scope MUST be "When writing Python code".
-   - Only set scope to "General" if the user gave an unconditional instruction with no topic or domain limit (e.g. "always keep answers concise").
+1. ENDURING PREFERENCES (has_persistent_preference = True):
+   - The user states an explicit rule, constraint, or stylistic requirement intended to govern future answers across sessions.
+   - Examples of enduring preferences:
+     * "Whenever I ask for a comparison, include one drawback of each option." -> Scope: "When asking for a comparison", Preference: "Include one drawback of each option"
+     * "From now on, always include safety hazards and precautions when explaining chemistry procedures" -> Scope: "When explaining chemistry procedures", Preference: "Include safety hazards and precautions"
+     * "In all financial calculations, show the intermediate tax formula before the final result." -> Scope: "In financial calculations", Preference: "Show intermediate tax formula before final result"
+     * "Please always provide responses in Spanish." -> Scope: "General", Preference: "Respond in Spanish"
+     * "Keep all future answers concise and under 3 sentences." -> Scope: "General", Preference: "Keep answers concise and under 3 sentences"
 
-3. MANDATORY CONFLICT RESOLUTION & SUPERSEDING:
-   - Here are the user's CURRENT active memories:
+2. DO NOT SAVE — ONE-TIME TASK REQUESTS (has_persistent_preference = False):
+   - Instructions or formatting constraints intended ONLY for the current, immediate prompt.
+   - Examples:
+     * "Compare React and Vue and include one drawback of each." -> One-time task prompt! (Does NOT establish a standing rule for future queries)
+     * "Summarize this article in 3 bullet points." -> One-time task prompt!
+     * "Can you format your answer as a numbered list just for this question?" -> One-time task prompt!
+     * "Write a quick Python script to parse a CSV file." -> One-time task prompt!
+
+3. DO NOT SAVE — ORDINARY QUESTIONS & INQUIRIES (has_persistent_preference = False):
+   - Factual questions, information retrieval, explanations, or casual conversation.
+   - Examples:
+     * "What is the boiling point of ethanol at 1 atm?"
+     * "How do solar panels work?"
+     * "What is the difference between TCP and UDP?"
+
+4. DO NOT SAVE — THIRD-PARTY OR QUOTED INSTRUCTIONS (has_persistent_preference = False):
+   - Preferences or rules attributed to someone else, quoted from external style guides, or described as third-party constraints.
+   - Examples:
+     * "My boss said 'always use uppercase for SQL keywords', but what do you think?" -> Third-party quote! Not the user's personal preference for this assistant.
+     * "Alice told me: 'I always write Python using camelCase'." -> Third-party preference!
+     * "The company handbook says employees must be formal." -> Third-party rule!
+
+5. STRICT SCOPE PRESERVATION (NO UNAUTHORIZED EXPANSION):
+   - Set `scope_description` to the user's EXACT stated scope condition. NEVER expand, extrapolate, or generalize without permission.
+   - If user says: "Whenever I ask for a comparison...", scope MUST be "When asking for a comparison" (DO NOT expand to "All questions").
+   - If user says: "When explaining chemistry procedures...", scope MUST be "When explaining chemistry procedures" (DO NOT expand to "All science").
+   - Only set scope to "General" if the instruction was unconditional across all topics (e.g. "always keep answers concise").
+
+6. VERBATIM EVIDENCE QUOTES:
+   - In `evidence_quotes`, include the EXACT words spoken by the user in the dialogue that demonstrate this preference.
+   - Never fabricate or paraphrase evidence quotes.
+
+7. CONFLICT RESOLUTION & SUPERSEDING:
+   - Current active memories for this user:
 {json.dumps(memories, indent=2)}
-   - If the new preference conflicts with, contradicts, or changes an existing active memory (e.g. "detailed" vs "concise", "cooking analogies" vs "academic formulas", "TypeScript" vs "Rust", "include safety hazards" vs "focus strictly on theoretical mechanisms"), you MUST supersede or update the old memory.
-   - Set `action: "update"` targeting the existing memory ID, or `action: "delete"` on the old one. Contradictory preferences on the same scope/dimension must NEVER both remain active.
-
-4. VERBATIM EVIDENCE:
-   - In `evidence_quotes`, include the EXACT words spoken by the user that prove this preference.
+   - If the new preference conflicts with, contradicts, or changes an existing active memory, set `action: "update"` targeting that memory ID or supersede it. Contradictory preferences on the same scope/dimension must NEVER both remain active.
 
 DIALOGUE TO ANALYZE:
 {dialogue_text}
@@ -308,24 +351,35 @@ Provide output strictly adhering to the JSON schema."""
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=MemoryExtractionPayload,
-                    temperature=0.1,
+                    temperature=0.0,
                 ),
             )
 
             raw_text = response.text.strip()
             data = json.loads(raw_text)
+            analysis = data.get("analysis", "")
+            outcome["analysis"] = analysis
 
             if not data.get("has_persistent_preference", False):
-                logger.info(f"V2 Memory Engine: No persistent preference found in dialogue. Analysis: {data.get('analysis')}")
-                return memories
+                logger.info(f"V2 Memory Engine: No persistent preference found in dialogue. Analysis: {analysis}")
+                outcome["status"] = "no_update_needed"
+                return (memories, outcome) if return_details else memories
 
             operations = data.get("operations", [])
+            if not operations:
+                outcome["status"] = "no_update_needed"
+                return (memories, outcome) if return_details else memories
+
+            affected_memory = None
+            action_status = "saved"
+
             for op in operations:
                 action = op.get("action", "add").lower()
                 target_id = op.get("id") or op.get("target_id")
 
                 if action in ["delete", "remove"]:
                     memories = [m for m in memories if m.get("id") != target_id]
+                    action_status = "updated"
                     logger.info(f"V2 Memory: Deleted memory {target_id}")
 
                 elif action in ["update", "supersede", "modify"]:
@@ -340,12 +394,14 @@ Provide output strictly adhering to the JSON schema."""
                             m["evidence_quotes"] = op.get("evidence_quotes", m.get("evidence_quotes", []))
                             m["status"] = op.get("status", "confirmed")
                             m["updated_at"] = time.time()
+                            affected_memory = m
                             updated = True
+                            action_status = "updated"
                             logger.info(f"V2 Memory: Updated memory {m.get('id')}")
                             break
                     if not updated and op.get("preference_description"):
                         new_id = target_id or f"mem_{int(time.time() * 1000) % 100000}"
-                        memories.append({
+                        new_mem = {
                             "id": new_id,
                             "scope_description": op.get("scope_description", "General"),
                             "preference_description": op.get("preference_description", ""),
@@ -353,7 +409,10 @@ Provide output strictly adhering to the JSON schema."""
                             "status": op.get("status", "confirmed"),
                             "created_at": time.time(),
                             "updated_at": time.time(),
-                        })
+                        }
+                        memories.append(new_mem)
+                        affected_memory = new_mem
+                        action_status = "saved"
 
                 elif action == "add":
                     if op.get("preference_description"):
@@ -383,10 +442,11 @@ Provide output strictly adhering to the JSON schema."""
                             if not is_conflict:
                                 cleaned_memories.append(m)
                             else:
+                                action_status = "updated"
                                 logger.info(f"V2 Memory: Programmatically superseded conflicting memory {m.get('id')} in favor of new preference")
 
                         memories = cleaned_memories
-                        memories.append({
+                        new_mem = {
                             "id": new_id,
                             "scope_description": op.get("scope_description", "General"),
                             "preference_description": op.get("preference_description"),
@@ -394,15 +454,34 @@ Provide output strictly adhering to the JSON schema."""
                             "status": op.get("status", "confirmed"),
                             "created_at": time.time(),
                             "updated_at": time.time(),
-                        })
+                        }
+                        memories.append(new_mem)
+                        affected_memory = new_mem
+                        if action_status != "updated":
+                            action_status = "saved"
                         logger.info(f"V2 Memory: Added new memory {new_id} [Scope: {op.get('scope_description')}]")
 
-            self.save_user_memories(user_id, memories)
-            return memories
+            # Persist to disk
+            try:
+                self.save_user_memories(user_id, memories)
+                outcome["status"] = action_status
+                outcome["memory"] = affected_memory
+            except Exception as e_save:
+                safe_err = f"Storage write error: {type(e_save).__name__}"
+                logger.error(f"Failed to persist user memory: {safe_err}")
+                outcome["status"] = "failed"
+                outcome["error"] = safe_err
+                outcome["memory"] = None
+
+            return (memories, outcome) if return_details else memories
 
         except Exception as exc:
-            logger.error(f"Error in infer_and_update_memory: {exc}", exc_info=True)
-            return memories
+            safe_err = f"Extraction error: {type(exc).__name__}"
+            logger.error(f"Error in infer_and_update_memory: {safe_err}")
+            outcome["status"] = "failed"
+            outcome["error"] = safe_err
+            outcome["memory"] = None
+            return (memories, outcome) if return_details else memories
 
     # -------------------------------------------------------------------------
     # Step B: Retrieve (retrieve_relevant_memories)
@@ -583,10 +662,12 @@ Output JSON with:
         applied_memories: List[Dict[str, Any]],
         reason: str,
         conversation_history: Optional[List[Dict[str, Any]]] = None,
+        memory_write_status: Optional[str] = None,
     ) -> str:
         """
         Generates final answer conditioned ONLY on memories judged apply: true.
         If suppressed, generates direct, objective, factual response without unrequested styles.
+        If memory_write_status == 'failed', prevents falsely promising future memory.
         """
         if not self.client:
             return "**[Gemini API Offline]**: Cannot generate response without GEMINI_API_KEY."
@@ -607,6 +688,13 @@ Output JSON with:
                 "You are ATTUNE v2, an objective, concise, and helpful AI assistant.\n"
                 f"GATING POLICY: Any prior stylistic or formatting preferences are SUPPRESSED for this query ({reason}).\n"
                 "Answer the user's request directly, factually, and concisely without assuming unrequested styles, metaphors, or formatting."
+            )
+
+        if memory_write_status == "failed":
+            system_instruction += (
+                "\nCRITICAL INSTRUCTION ON MEMORY PERSISTENCE: An error occurred while attempting to write to persistent memory. "
+                "You MUST NOT claim, acknowledge, or promise that you have saved, stored, or remembered this preference for future sessions. "
+                "If the user was asking to set or remember a preference, inform them clearly that the preference could not be saved to persistent memory."
             )
 
         from google.genai import types

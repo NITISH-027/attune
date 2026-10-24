@@ -379,12 +379,14 @@ class UniversalResponseGenerator:
         pref: Optional[LearnedPreference],
         reason: str,
         conversation_history: Optional[List[Dict[str, Any]]] = None,
+        memory_write_status: Optional[str] = None,
     ) -> str:
         """
         Executes live multi-turn text generation with Gemini API:
         - If APPLIED: Injects the active candidate preference directive into system prompt.
         - If SUPPRESSED: Instructs Gemini to answer directly, factually, and concisely without metaphors.
         - Passes conversation_history (last 6 turns) so follow-ups retain full ongoing context.
+        - If memory_write_status == 'failed', prevents falsely promising future memory.
         """
         if not self.client:
             err_msg = (
@@ -426,6 +428,13 @@ class UniversalResponseGenerator:
                 "Answer directly, factually, and concisely. "
                 "Do NOT use metaphors, analogies, or unrequested formatting. "
                 "Provide the direct, accurate answer immediately."
+            )
+
+        if memory_write_status == "failed":
+            system_instruction += (
+                "\nCRITICAL INSTRUCTION ON MEMORY PERSISTENCE: An error occurred while attempting to write to persistent memory. "
+                "You MUST NOT claim, acknowledge, or promise that you have saved, stored, or remembered this preference for future sessions. "
+                "If the user was asking to set or remember a preference, inform them clearly that the preference could not be saved to persistent memory."
             )
 
         # Build multi-turn contents for Gemini
@@ -560,6 +569,7 @@ class AttuneUniversalEngine:
 
         # 3. Dynamic Arbitrary Preference Learning or Preset Registration
         newly_learned_memory = None
+        write_outcome = {"status": "no_update_needed", "memory": None}
 
         if preset_pref:
             human_text = preset_human_readable or f"You prefer {preset_pref} in {domain_title}."
@@ -586,36 +596,45 @@ class AttuneUniversalEngine:
             v2_mems.append(new_v2_mem)
             self.v2_engine.save_user_memories(target_user_id, v2_mems)
             newly_learned_memory = new_v2_mem
-        elif self.extractor.has_preference_directive(message) and not session.recent_override:
-            # Generalized Arbitrary Preference Learning (Zero hardcoding, preserves user scope)
+            write_outcome = {"status": "saved", "memory": new_v2_mem}
+        elif not session.recent_override:
+            # Evaluate user turn for potential enduring memory updates using structured LLM interpretation
+            # (No closed English cue-phrase list, preserves user's exact scope, uses real dialogue evidence)
             try:
+                real_dialogue = []
+                for turn in session.conversation_turns[-4:]:
+                    r = turn.get("role", "user")
+                    parts = turn.get("parts", [])
+                    txt = " ".join([str(p) for p in parts if p]).strip()
+                    if txt:
+                        real_dialogue.append({"role": r, "content": txt})
+                real_dialogue.append({"role": "user", "content": message})
+
                 prior_mems = self.v2_engine.get_user_memories(target_user_id)
-                prior_len = len(prior_mems)
-                updated_mems = self.v2_engine.infer_and_update_memory(
+                updated_mems, write_outcome = self.v2_engine.infer_and_update_memory(
                     user_id=target_user_id,
-                    dialogue=f"User: {message}\nAssistant: Understood.",
-                    existing_memories=prior_mems
+                    dialogue=real_dialogue,
+                    existing_memories=prior_mems,
+                    return_details=True
                 )
-                if updated_mems:
-                    if len(updated_mems) > prior_len:
-                        newly_learned_memory = updated_mems[-1]
-                    else:
-                        for m_new in updated_mems:
-                            if m_new not in prior_mems:
-                                newly_learned_memory = m_new
-                                break
-                    if newly_learned_memory:
-                        active_pref = self.memory.add_preference(
-                            session_id=session_id,
-                            human_readable=newly_learned_memory.get("preference_description", "New Preference"),
-                            domain=detected_domain,
-                            dimension="Style",
-                            preference_token="NATURAL_LANGUAGE",
-                            evidence=newly_learned_memory.get("evidence_quotes", [message])[0] if newly_learned_memory.get("evidence_quotes") else message
-                        )
-                        logger.info(f"Learned arbitrary preference for user '{target_user_id}': '{newly_learned_memory.get('preference_description')}' (Scope: '{newly_learned_memory.get('scope_description')}')")
+                if write_outcome.get("status") in ("saved", "updated") and write_outcome.get("memory"):
+                    newly_learned_memory = write_outcome["memory"]
+                    active_pref = self.memory.add_preference(
+                        session_id=session_id,
+                        human_readable=newly_learned_memory.get("preference_description", "New Preference"),
+                        domain=detected_domain,
+                        dimension="Style",
+                        preference_token="NATURAL_LANGUAGE",
+                        evidence=newly_learned_memory.get("evidence_quotes", [message])[0] if newly_learned_memory.get("evidence_quotes") else message
+                    )
+                    logger.info(f"Learned preference for user '{target_user_id}': '{newly_learned_memory.get('preference_description')}' (Scope: '{newly_learned_memory.get('scope_description')}')")
+                elif write_outcome.get("status") == "failed":
+                    logger.warning(f"Memory persistence failed for user '{target_user_id}': {write_outcome.get('error')}")
             except Exception as e_mem:
-                logger.warning(f"Generalized LLM memory extraction error: {e_mem}")
+                safe_err = f"Evaluation error: {type(e_mem).__name__}"
+                logger.error(f"Error during memory evaluation: {safe_err}")
+                write_outcome = {"status": "failed", "error": safe_err, "memory": None}
+
             active_pref = session.get_active_preference(detected_domain)
         else:
             active_pref = session.get_active_preference(detected_domain)
@@ -702,7 +721,8 @@ class AttuneUniversalEngine:
                 applied=applied,
                 applied_memories=applied_v2_memories,
                 reason=reason,
-                conversation_history=session.conversation_turns[-6:]
+                conversation_history=session.conversation_turns[-6:],
+                memory_write_status=write_outcome.get("status"),
             )
         else:
             response_text = self.generator.generate(
@@ -711,7 +731,8 @@ class AttuneUniversalEngine:
                 applied=applied,
                 pref=active_pref,
                 reason=reason,
-                conversation_history=session.conversation_turns[-6:]
+                conversation_history=session.conversation_turns[-6:],
+                memory_write_status=write_outcome.get("status"),
             )
 
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
@@ -746,6 +767,8 @@ class AttuneUniversalEngine:
             "my_voice_count": len([p for p in session.preferences if p.active]) + len(v2_user_memories),
             "v2_active_memories": v2_user_memories,
             "newly_learned_memory": newly_learned_memory,
+            "memory_write_status": write_outcome.get("status", "no_update_needed"),
+            "memory_write_error": write_outcome.get("error"),
             "retrieved_memories": candidates if v2_user_memories else [],
             "applied_memories": applied_v2_memories,
             "suppressed_memories": suppressed_v2_memories,
@@ -754,7 +777,7 @@ class AttuneUniversalEngine:
         return {
             "response": response_text,
             "telemetry": telemetry,
-            "my_voice": self.memory.list_voice_preferences(session_id)
+            "my_voice": self.memory.list_voice_preferences(user_id=target_user_id, session_id=session_id)
         }
 
 
