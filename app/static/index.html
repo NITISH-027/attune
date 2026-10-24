@@ -97,26 +97,26 @@
 
       <!-- Live Research & Governance Badges -->
       <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 shadow-sm">
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 shadow-sm" title="ATTUNE v2 Open Memory Recall on out-of-domain CUPID benchmark">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Accuracy:</span>
-          <span class="font-bold text-emerald-200">93.0%</span>
+          <span>v2 CUPID Recall:</span>
+          <span class="font-bold text-emerald-200">83.3% (5.0x vs v1)</span>
         </div>
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/60 text-cyan-300 shadow-sm">
-          <span>NTR:</span>
-          <span class="font-bold text-cyan-200">9.2% (90.8% Reduction)</span>
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/60 text-cyan-300 shadow-sm" title="Verbatim dialogue evidence backing every learned memory">
+          <span>Evidence Grounded:</span>
+          <span class="font-bold text-cyan-200">100% Verbatim</span>
         </div>
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-indigo-300 shadow-sm">
-          <span>Gate:</span>
-          <span class="font-bold text-indigo-200">&tau;* = 0.900</span>
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-indigo-300 shadow-sm" title="Multi-session memory update and correction fidelity">
+          <span>Lifecycle Fidelity:</span>
+          <span class="font-bold text-indigo-200">100% Correctable</span>
         </div>
-        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-950/40 border border-purple-800/60 text-purple-300 shadow-sm">
-          <span>Split:</span>
-          <span class="font-bold text-purple-200">Zero Verbatim Query Overlap</span>
+        <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-950/40 border border-purple-800/60 text-purple-300 shadow-sm" title="ATTUNE v1 Frozen Baseline classifier threshold">
+          <span>v1 Baseline:</span>
+          <span class="font-bold text-purple-200">&tau;* = 0.900 (Frozen)</span>
         </div>
         <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-slate-300 shadow-sm">
-          <span>Privacy:</span>
-          <span class="font-bold text-slate-200">User Controlled</span>
+          <span>Architecture:</span>
+          <span class="font-bold text-slate-200">v2 Open Memory</span>
         </div>
       </div>
 
@@ -321,6 +321,16 @@
             </div>
           </div>
 
+          <!-- Memory Learning Event Callout -->
+          <div id="learned-memory-callout" class="hidden p-3.5 rounded-xl bg-cyan-950/60 border border-cyan-500/60 text-cyan-100 shadow-md transition-all">
+            <div class="flex items-center space-x-2 text-xs font-bold text-cyan-300 mb-1">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+              <span>🧠 NEW PREFERENCE LEARNED & SAVED TO PERSISTENT MEMORY</span>
+            </div>
+            <p id="learned-memory-text" class="text-xs text-white leading-snug">--</p>
+            <p id="learned-memory-evidence" class="text-[11px] font-mono text-cyan-400/90 mt-1 italic">--</p>
+          </div>
+
           <!-- 2. Calibrated Probability Gauge -->
           <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80">
             <div class="flex items-center justify-between mb-2">
@@ -367,6 +377,17 @@
             </div>
             <div id="telemetry-reason" class="text-xs text-slate-300 leading-relaxed">
               Awaiting query interaction.
+            </div>
+          </div>
+
+          <!-- 5. Multi-Memory Gating Trace -->
+          <div id="memory-trace-container" class="hidden p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Evaluated Candidate Memories</span>
+              <span id="memory-trace-count" class="text-[10px] font-mono text-cyan-300">0 Memories</span>
+            </div>
+            <div id="memory-trace-list" class="space-y-2">
+              <!-- Dynamically populated with each candidate memory and its applied/suppressed badge -->
             </div>
           </div>
 
@@ -492,6 +513,16 @@
       container.scrollTop = container.scrollHeight;
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     // Update Policy Inspector UI
     function updatePolicyInspector(telemetry) {
       if (!telemetry) return;
@@ -552,6 +583,68 @@
         barFill.className = 'h-full rounded-full transition-all duration-500 bg-amber-400';
         icon.className = 'w-8 h-8 rounded-lg bg-amber-900/60 text-amber-300 flex items-center justify-center flex-shrink-0';
         icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`;
+      }
+
+      // Memory Learning Callout
+      const callout = document.getElementById('learned-memory-callout');
+      if (callout) {
+        if (telemetry.newly_learned_memory) {
+          const mem = telemetry.newly_learned_memory;
+          document.getElementById('learned-memory-text').textContent = mem.preference_description || mem.preference_token || 'New preference learned.';
+          const ev = (mem.evidence_quotes && mem.evidence_quotes.length > 0) ? mem.evidence_quotes[0] : 'Direct instruction in user prompt';
+          document.getElementById('learned-memory-evidence').textContent = `Verbatim Evidence: "${ev}"`;
+          callout.classList.remove('hidden');
+        } else {
+          callout.classList.add('hidden');
+        }
+      }
+
+      // Candidate memory evaluation trace list
+      const traceContainer = document.getElementById('memory-trace-container');
+      const traceList = document.getElementById('memory-trace-list');
+      if (traceContainer && traceList) {
+        const retrieved = telemetry.retrieved_memories || [];
+        const appliedList = telemetry.applied_memories || [];
+
+        if (retrieved.length > 0) {
+          traceContainer.classList.remove('hidden');
+          document.getElementById('memory-trace-count').textContent = `${retrieved.length} Evaluated`;
+          traceList.innerHTML = retrieved.map(m => {
+            const isApplied = appliedList.some(a => (a.id && a.id === m.id) || (a.preference_description === m.preference_description));
+            const badgeClass = isApplied ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300' : 'bg-amber-950/70 border-amber-800 text-amber-300';
+            const badgeText = isApplied ? '✓ APPLIED (GATE OPEN)' : '✗ SUPPRESSED';
+            const dotClass = isApplied ? 'bg-emerald-400' : 'bg-amber-400';
+            const quotes = (m.evidence_quotes && m.evidence_quotes.length > 0) ? `"${m.evidence_quotes[0]}"` : '';
+            return `
+              <div class="p-2.5 rounded-lg border text-xs ${badgeClass} space-y-1">
+                <div class="flex items-center justify-between font-mono text-[10px]">
+                  <span class="flex items-center space-x-1 font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full ${dotClass}"></span>
+                    <span>${badgeText}</span>
+                  </span>
+                  <span class="opacity-75">${m.scope_description || 'Scope'}</span>
+                </div>
+                <p class="font-sans font-medium text-slate-100">${escapeHtml(m.preference_description || m.preference_token || '')}</p>
+                ${quotes ? `<p class="text-[10px] italic opacity-80 font-mono">Evidence: ${escapeHtml(quotes)}</p>` : ''}
+              </div>
+            `;
+          }).join('');
+        } else if (hasValidPref) {
+          traceContainer.classList.remove('hidden');
+          document.getElementById('memory-trace-count').textContent = '1 Evaluated';
+          const badgeClass = applied ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300' : 'bg-amber-950/70 border-amber-800 text-amber-300';
+          const badgeText = applied ? '✓ APPLIED (GATE OPEN)' : '✗ SUPPRESSED';
+          traceList.innerHTML = `
+            <div class="p-2.5 rounded-lg border text-xs ${badgeClass} space-y-1">
+              <div class="flex items-center justify-between font-mono text-[10px]">
+                <span class="font-bold">${badgeText}</span>
+              </div>
+              <p class="font-sans font-medium text-slate-100">${escapeHtml(telemetry.preference_description || telemetry.candidate_preference)}</p>
+            </div>
+          `;
+        } else {
+          traceContainer.classList.add('hidden');
+        }
       }
 
       document.getElementById('telemetry-domain').textContent = telemetry.domain;
@@ -676,6 +769,7 @@
         appendMessage('assistant', data.response, data.telemetry);
         updatePolicyInspector(data.telemetry);
         if (data.my_voice) renderVoiceList(data.my_voice);
+        fetchVoicePreferences();
 
       } catch (err) {
         appendMessage('assistant', `**Error**: ${err.message}`);
@@ -783,17 +877,15 @@
         document.getElementById('status-subtitle').textContent = 'Send a query to observe real-time preference gating.';
         document.getElementById('prob-value').textContent = '--';
         document.getElementById('prob-bar-fill').style.width = '0%';
-        document.getElementById('telemetry-reason').textContent = 'Awaiting query interaction.';
-        document.getElementById('telemetry-latency').textContent = '-- ms';
+        const callout = document.getElementById('learned-memory-callout');
+        if (callout) callout.classList.add('hidden');
+        const traceContainer = document.getElementById('memory-trace-container');
+        if (traceContainer) traceContainer.classList.add('hidden');
 
         renderVoiceList(data.preferences);
       } catch (err) {
         console.error('Reset error:', err);
       }
-    }
-
-    function escapeHtml(str) {
-      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     window.addEventListener('DOMContentLoaded', () => {

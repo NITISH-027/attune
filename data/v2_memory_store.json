@@ -155,5 +155,20 @@
       "created_at": 1792836839.33516,
       "updated_at": 1792836839.33516
     }
+  ],
+  "test_feedback_loop_session": [
+    {
+      "id": "v2_pref_education_learning_49115",
+      "scope_description": "Education & Learning - Science, Biology, Chemistry, and Academic explanations",
+      "preference_description": "You prefer explanations of chemical, biological, and technical procedures to always explicitly include safety hazards, precautions, and warning notes.",
+      "dimension": "Safety & Hazards",
+      "preference_token": "CONTENT:SAFETY_HAZARDS",
+      "evidence_quotes": [
+        "From now on, always include safety hazards and precautions when explaining chemistry procedures"
+      ],
+      "status": "confirmed",
+      "created_at": 1792839049.1152835,
+      "updated_at": 1792839049.1152835
+    }
   ]
 }
